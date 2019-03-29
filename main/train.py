@@ -152,4 +152,4 @@ if __name__ == '__main__':
     stop = time.time()
     print 'Time elapsed =', stop - start
 
-    # TODO: Check that moving_dataset and target_dataset has equal size
+    # TODO: Check that moving_dataset and target_dataset has equal size?
