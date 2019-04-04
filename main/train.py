@@ -8,13 +8,13 @@ sys.path.append('../library/quicksilver')
 import network
 import util
 import affine_transformation as at
-from loss import NNCC
+from nncc_loss import NNCC
 
 # External libraries
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
+from torch.autograd import Variable
 
 def create_net(features, continue_from_parameter=None):
     net = network.Net(features).cuda()
@@ -32,13 +32,13 @@ def train_cur_data(epoch, data_index, moving_dataset, target_dataset, net, crite
                    model_name, batch_size, stride=14):
     # Loading images
     moving = torch.load(moving_dataset).float()
-    target = torch.load(target_dataset).float()
+    target = torch.load(target_dataset).float().requires_grad_()
 
     data_size = moving.size()
 
     # Initializing batch variables
-    input_batch = torch.zeros(batch_size, 2, patch_size, patch_size, patch_size, requires_grad=True).cuda()
-    output_batch = torch.zeros(data_size[0], data_size[1], data_size[2], data_size[3], requires_grad=True).cuda()
+    input_batch = torch.zeros(batch_size, 2, patch_size, patch_size, patch_size).cuda()
+    predicted_image = torch.zeros(data_size[0], data_size[1], data_size[2], data_size[3], requires_grad=True).cuda()
 
     # Creates a flat array in indexes corresponding to patches in the target and moving images
     flat_idx = util.calculatePatchIdx3D(data_size[0], patch_size * torch.ones(3), data_size[1:],
@@ -82,23 +82,23 @@ def train_cur_data(epoch, data_index, moving_dataset, target_dataset, net, crite
                                      patch_pos[2]:patch_pos[2] + patch_size,
                                      patch_pos[3]:patch_pos[3] + patch_size].cuda()
 
+
         # Zeroing gradients
+        print 'net.conv_net.conv1_m.bias.grad before zero grad', net.conv_net.conv1_m.bias.grad
         optimizer.zero_grad()
 
         # Forward pass and averaging over all batches
         predicted_parameters = net(input_batch).mean(0)
-        translation_vector = predicted_parameters[:3].detach()
-        scaling_vector = predicted_parameters[3:6].detach()
-        rotation = predicted_parameters[6:].detach()
 
-        for i in range(len(output_batch)):
-            transformed_image = at.translation(moving[i], translation_vector)
-            transformed_image = at.scaling(transformed_image, scaling_vector)
-            transformed_image = at.rotation(transformed_image, rotation)
-            output_batch[i] = torch.from_numpy(transformed_image)
 
-        loss = criterion(output_batch, target.cuda())
+        print 'net.conv_net.conv1_m.bias.grad before backward', net.conv_net.conv1_m.bias.grad
+
+        loss = criterion(predicted_parameters, target.cuda(), moving, data_size)
         loss.backward(retain_graph=True)
+
+        print 'net.conv_net.conv1_m.bias.grad after backward', net.conv_net.conv1_m.bias.grad
+        print loss
+
         loss_value = loss.item()
         optimizer.step()
         print('====> Epoch: {}, datapart: {}, iter: {}/{}, loss: {}'.format(
@@ -117,9 +117,8 @@ def train_cur_data(epoch, data_index, moving_dataset, target_dataset, net, crite
 def train_network(moving_dataset, target_dataset, features, n_epochs, learning_rate, batch_size, model_name):
     net = create_net(features)
     net.train()
-    criterion = NNCC().cuda()
+    criterion = NNCC()
     optimizer = optim.Adam(net.parameters(), learning_rate)
-
     for epoch in range(n_epochs):
         for data_index in range(len(moving_dataset)):
             train_cur_data(epoch,
@@ -137,15 +136,19 @@ if __name__ == '__main__':
     # ===================================
     features = 32
     batch_size = 64
-    patch_size = 15
+    patch_size = 30
     output_name = ['/home/anders/affine_registration/output/']
     model_name = '/home/anders/affine_registration/main/network_model.pht.tar'
-    n_epochs = 1
+    n_epochs = 3
     learning_rate = 0.0001
     # ===================================
 
-    moving_dataset = ['/media/anders/TOSHIBA_EXT1/Training_set/moving_HA3C98PM.pth.tar']
-    target_dataset = ['/media/anders/TOSHIBA_EXT1/Training_set/target_HA3C98PM.pth.tar']
+    moving_dataset = ['/media/anders/TOSHIBA_EXT1/Training_set/moving_HA3C98PM.pth.tar',
+                      '/media/anders/TOSHIBA_EXT1/Training_set/moving_HA3C98PQ.pth.tar',
+                      '/media/anders/TOSHIBA_EXT1/Training_set/moving_HA3C98Q4.pth.tar']
+    target_dataset = ['/media/anders/TOSHIBA_EXT1/Training_set/target_HA3C98PM.pth.tar',
+                      '/media/anders/TOSHIBA_EXT1/Training_set/target_HA3C98PQ.pth.tar',
+                      '/media/anders/TOSHIBA_EXT1/Training_set/target_HA3C98Q4.pth.tar']
 
     start = time.time()
     train_network(moving_dataset, target_dataset, features, n_epochs, learning_rate, batch_size, model_name)

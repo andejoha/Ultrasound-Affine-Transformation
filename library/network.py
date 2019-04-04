@@ -88,15 +88,7 @@ class Net(nn.Module):
         fc_output = self.relu1(self.fc1(conv_output))
         fc_output = self.fc2(fc_output)
 
-        # Applying output constraints
-        translation = fc_output[:, :3]
-        scaling = fc_output[:, 3:6]
-        rotation = fc_output[:, 6:]
-
-        scaling = torch.clamp(scaling, 0.5, 1.5)
-        rotation = torch.clamp(rotation, -math.pi/6, math.pi/6)
-
-        return torch.cat((translation, scaling, rotation), 1)
+        return fc_output
 
 
 if __name__ == '__main__':
