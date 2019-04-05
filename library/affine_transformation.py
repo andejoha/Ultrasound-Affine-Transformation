@@ -8,6 +8,43 @@ import matplotlib.pyplot as plt
 import time
 
 
+def affine_grid_generator_3D(theta, size):
+    N, C, D, W, H = size
+
+    base_grid = theta.new(N, D, H, W, 4)
+
+    w_points = (torch.linspace(-1, 1, W) if W > 1 else torch.Tensor([-1]))
+    h_points = (torch.linspace(-1, 1, H) if H > 1 else torch.Tensor([-1])).unsqueeze(-1)
+    d_points = (torch.linspace(-1, 1, D) if D > 1 else torch.Tensor([-1])).unsqueeze(-1).unsqueeze(-1)
+
+    base_grid[:, :, :, :, 0] = w_points
+    base_grid[:, :, :, :, 1] = h_points
+    base_grid[:, :, :, :, 2] = d_points
+    base_grid[:, :, :, :, 3] = 1
+    grid = torch.bmm(base_grid.view(N, D * H * W, 4), theta.transpose(1, 2))
+    grid = grid.view(N, D, H, W, 3)
+
+    return grid
+
+
+def affine_grid_generator_2D(theta, size):
+    print theta
+    print size
+    N, C, H, W = size
+
+    base_grid = theta.new(N, H, W, 3)
+
+    linear_points = torch.linspace(-1, 1, W) if W > 1 else torch.Tensor([-1])
+    base_grid[:, :, :, 0] = torch.ger(torch.ones(H), linear_points).expand_as(base_grid[:, :, :, 0])
+    linear_points = torch.linspace(-1, 1, H) if H > 1 else torch.Tensor([-1])
+    base_grid[:, :, :, 1] = torch.ger(linear_points, torch.ones(W)).expand_as(base_grid[:, :, :, 1])
+    base_grid[:, :, :, 2] = 1
+    grid = torch.bmm(base_grid.view(N, H * W, 3), theta.transpose(1, 2))
+    grid = grid.view(N, H, W, 2)
+
+    return grid
+
+
 def translation(image, translation_vector):
     translation_vector = np.array(translation_vector.cpu())
 
@@ -147,24 +184,53 @@ def trilinear_interpolate(im, x, y, z):
 
 
 if __name__ == '__main__':
-    start = time.time()
+    # start = time.time()
 
-    image = scipy.misc.ascent()
+    np_image = scipy.misc.ascent()
+    image = torch.empty(1, 1, np_image.shape[0], np_image.shape[1])
+    image[0, 0] = torch.tensor(np_image)
 
-    translation_vector = torch.ones(3).cuda() * -3
-    scaling_vector = torch.ones(3).cuda() * 0.5
-    theta = torch.ones(1).cuda() * np.pi / 12
+    # translation_vector = torch.ones(3).cuda() * -3
+    # scaling_vector = torch.ones(3).cuda() * 0.5
+    # theta = torch.ones(1).cuda() * np.pi / 12
 
     # transformed_image = translation(image, translation_vector)
-    transformed_image = scaling(image, scaling_vector)
+    # transformed_image = scaling(image, scaling_vector)
     # transformed_image = rotation(image, theta)
 
-    plt.imshow(transformed_image, cmap='gray')
+    # plt.imshow(transformed_image, cmap='gray')
 
-    stop = time.time()
-    print 'Time elapsed =', stop - start
-    plt.show()
+    # stop = time.time()
+    # print 'Time elapsed =', stop - start
+    # plt.show()
 
     # plt.imshow(transformed_image, cmap='gray')
     # plt.grid()
+    # plt.show()
+
+    theta_3D = torch.zeros(1, 3, 4)
+    theta_3D[0, :, :-1] = torch.eye(3)
+    input = torch.empty(1, 1, image.shape[2], image.shape[2], image.shape[3])
+    size_3D = input.shape
+
+    for i in range(512):
+        input[0, 0, i, :, :] = image[0, 0]
+
+    affine_grid = affine_grid_generator_3D(theta_3D, size_3D)
+    output = torch.nn.functional.grid_sample(input, affine_grid)
+
+    plt.subplot(121)
+    plt.imshow(input[0, 0, 256], cmap='gray')
+    plt.subplot(122)
+    plt.imshow(output[0, 0, 256], cmap='gray')
+    plt.show()
+
+    theta_2D = torch.zeros(1, 2, 3)
+    theta_2D[0, :, :-1] = torch.eye(2)
+    size_2D = (1, 1, image.shape[2], image.shape[3])
+
+    affine_grid = affine_grid_generator_2D(theta_2D, size_2D)
+    output = torch.nn.functional.grid_sample(image, affine_grid)
+
+    # plt.imshow(output[0,0], cmap='gray')
     # plt.show()
