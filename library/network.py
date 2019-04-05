@@ -81,12 +81,18 @@ class Net(nn.Module):
         self.conv_net = ConvNet(features).cuda()
         self.fc1 = nn.Linear(features * 2, features).cuda()
         self.relu1 = nn.ReLU().cuda()
-        self.fc2 = nn.Linear(features, 7).cuda()
+        self.fc2 = nn.Linear(features, 12).cuda()
+
+        # Initialize the weights/bias with identity transformation
+        I = torch.tensor([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0], dtype=torch.float).cuda()
+        self.fc2.weight.data.zero_()
+        self.fc2.bias.data.copy_(I)
 
     def forward(self, x):
         conv_output = self.conv_net(x)
         fc_output = self.relu1(self.fc1(conv_output))
         fc_output = self.fc2(fc_output)
+        fc_output = fc_output.view(-1, 3, 4)
 
         return fc_output
 
@@ -97,6 +103,7 @@ if __name__ == '__main__':
     x = torch.cat((moving_image, target_image), 1)
 
     net = Net(32).cuda()
-    out = net(x)
+    theta = net(x)
+    theta = theta.view(-1, 3, 4)
 
-    print out
+    print theta

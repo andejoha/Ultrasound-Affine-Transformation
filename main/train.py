@@ -84,20 +84,20 @@ def train_cur_data(epoch, data_index, moving_dataset, target_dataset, net, crite
 
 
         # Zeroing gradients
-        print 'net.conv_net.conv1_m.bias.grad before zero grad', net.conv_net.conv1_m.bias.grad
+        #print 'net.conv_net.conv1_m.bias.grad before zero grad', net.conv_net.conv1_m.bias.grad
         optimizer.zero_grad()
 
         # Forward pass and averaging over all batches
-        predicted_parameters = net(input_batch).mean(0)
+        predicted_theta = net(input_batch).mean(0)
+        #print predicted_theta
 
+        #print 'net.conv_net.conv1_m.bias.grad before backward', net.conv_net.conv1_m.bias.grad
 
-        print 'net.conv_net.conv1_m.bias.grad before backward', net.conv_net.conv1_m.bias.grad
-
-        loss = criterion(predicted_parameters, target.cuda(), moving, data_size)
+        loss = criterion(predicted_theta, target.cuda(), moving.cuda(), data_size)
         loss.backward(retain_graph=True)
 
-        print 'net.conv_net.conv1_m.bias.grad after backward', net.conv_net.conv1_m.bias.grad
-        print loss
+        #print 'net.conv_net.conv1_m.bias.grad after backward', net.conv_net.conv1_m.bias.grad
+        #print loss
 
         loss_value = loss.item()
         optimizer.step()

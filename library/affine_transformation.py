@@ -9,37 +9,35 @@ import time
 
 
 def affine_grid_generator_3D(theta, size):
-    N, C, D, W, H = size
+    N, C, D, H, W = size
 
-    base_grid = theta.new(N, D, H, W, 4)
+    base_grid = theta.new(N, D, H, W, 4).cuda()
 
-    w_points = (torch.linspace(-1, 1, W) if W > 1 else torch.Tensor([-1]))
-    h_points = (torch.linspace(-1, 1, H) if H > 1 else torch.Tensor([-1])).unsqueeze(-1)
-    d_points = (torch.linspace(-1, 1, D) if D > 1 else torch.Tensor([-1])).unsqueeze(-1).unsqueeze(-1)
+    w_points = (torch.linspace(-1, 1, W) if W > 1 else torch.Tensor([-1])).cuda()
+    h_points = (torch.linspace(-1, 1, H) if H > 1 else torch.Tensor([-1])).unsqueeze(-1).cuda()
+    d_points = (torch.linspace(-1, 1, D) if D > 1 else torch.Tensor([-1])).unsqueeze(-1).unsqueeze(-1).cuda()
 
     base_grid[:, :, :, :, 0] = w_points
     base_grid[:, :, :, :, 1] = h_points
     base_grid[:, :, :, :, 2] = d_points
     base_grid[:, :, :, :, 3] = 1
-    grid = torch.bmm(base_grid.view(N, D * H * W, 4), theta.transpose(1, 2))
+    grid = torch.bmm(base_grid.view(N, D * H * W, 4), theta.transpose(1, 2)).cuda()
     grid = grid.view(N, D, H, W, 3)
 
     return grid
 
 
 def affine_grid_generator_2D(theta, size):
-    print theta
-    print size
     N, C, H, W = size
 
-    base_grid = theta.new(N, H, W, 3)
+    base_grid = theta.new(N, H, W, 3).cuda()
 
-    linear_points = torch.linspace(-1, 1, W) if W > 1 else torch.Tensor([-1])
+    linear_points = torch.linspace(-1, 1, W) if W > 1 else torch.Tensor([-1]).cuda()
     base_grid[:, :, :, 0] = torch.ger(torch.ones(H), linear_points).expand_as(base_grid[:, :, :, 0])
-    linear_points = torch.linspace(-1, 1, H) if H > 1 else torch.Tensor([-1])
+    linear_points = torch.linspace(-1, 1, H) if H > 1 else torch.Tensor([-1]).cuda()
     base_grid[:, :, :, 1] = torch.ger(linear_points, torch.ones(W)).expand_as(base_grid[:, :, :, 1])
     base_grid[:, :, :, 2] = 1
-    grid = torch.bmm(base_grid.view(N, H * W, 3), theta.transpose(1, 2))
+    grid = torch.bmm(base_grid.view(N, H * W, 3), theta.transpose(1, 2)).cuda()
     grid = grid.view(N, H, W, 2)
 
     return grid
@@ -187,7 +185,7 @@ if __name__ == '__main__':
     # start = time.time()
 
     np_image = scipy.misc.ascent()
-    image = torch.empty(1, 1, np_image.shape[0], np_image.shape[1])
+    image = torch.empty(1, 1, np_image.shape[0], np_image.shape[1]).cuda()
     image[0, 0] = torch.tensor(np_image)
 
     # translation_vector = torch.ones(3).cuda() * -3
@@ -208,9 +206,9 @@ if __name__ == '__main__':
     # plt.grid()
     # plt.show()
 
-    theta_3D = torch.zeros(1, 3, 4)
-    theta_3D[0, :, :-1] = torch.eye(3)
-    input = torch.empty(1, 1, image.shape[2], image.shape[2], image.shape[3])
+    theta_3D = torch.zeros(1, 3, 4).cuda()
+    theta_3D[0, :, :-1] = torch.eye(3)*1.5
+    input = torch.empty(1, 1, image.shape[2], image.shape[2], image.shape[3]).cuda()
     size_3D = input.shape
 
     for i in range(512):
@@ -218,14 +216,15 @@ if __name__ == '__main__':
 
     affine_grid = affine_grid_generator_3D(theta_3D, size_3D)
     output = torch.nn.functional.grid_sample(input, affine_grid)
+    print output
 
     plt.subplot(121)
-    plt.imshow(input[0, 0, 256], cmap='gray')
+    plt.imshow(input[0, 0, 256].cpu(), cmap='gray')
     plt.subplot(122)
-    plt.imshow(output[0, 0, 256], cmap='gray')
+    plt.imshow(output[0, 0, 256].cpu(), cmap='gray')
     plt.show()
 
-    theta_2D = torch.zeros(1, 2, 3)
+    theta_2D = torch.zeros(1, 2, 3).cuda()
     theta_2D[0, :, :-1] = torch.eye(2)
     size_2D = (1, 1, image.shape[2], image.shape[3])
 
