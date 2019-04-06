@@ -3,6 +3,7 @@ import scipy
 import numpy as np
 import numpy.linalg
 import scipy.ndimage as snd
+import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
 import time
@@ -41,6 +42,21 @@ def affine_grid_generator_2D(theta, size):
     grid = grid.view(N, H, W, 2)
 
     return grid
+
+
+def affine_transform(moving_image, theta, data_size):
+    N, D, H, W = data_size
+
+    # Adding channel element
+    moving_image = moving_image.unsqueeze(1)
+
+    # Extending theta to include batches
+    predicted_theta = torch.empty(N, theta.shape[0], theta.shape[1]).cuda()
+    predicted_theta[:] = theta
+
+    affine_grid = affine_grid_generator_3D(predicted_theta, (N, 1, D, H, W)).cuda()
+    predicted_image = F.grid_sample(moving_image, affine_grid)
+    return predicted_image
 
 
 def translation(image, translation_vector):

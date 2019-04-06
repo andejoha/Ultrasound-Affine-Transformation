@@ -1,3 +1,4 @@
+import gc
 import sys
 import time
 
@@ -12,9 +13,9 @@ from nncc_loss import NNCC
 
 # External libraries
 import torch
-import torch.nn as nn
 import torch.optim as optim
-from torch.autograd import Variable
+import matplotlib.pyplot as plt
+
 
 def create_net(features, continue_from_parameter=None):
     net = network.Net(features).cuda()
@@ -32,13 +33,12 @@ def train_cur_data(epoch, data_index, moving_dataset, target_dataset, net, crite
                    model_name, batch_size, stride=14):
     # Loading images
     moving = torch.load(moving_dataset).float()
-    target = torch.load(target_dataset).float().requires_grad_()
+    target = torch.load(target_dataset).float()
 
     data_size = moving.size()
 
     # Initializing batch variables
     input_batch = torch.zeros(batch_size, 2, patch_size, patch_size, patch_size).cuda()
-    predicted_image = torch.zeros(data_size[0], data_size[1], data_size[2], data_size[3], requires_grad=True).cuda()
 
     # Creates a flat array in indexes corresponding to patches in the target and moving images
     flat_idx = util.calculatePatchIdx3D(data_size[0], patch_size * torch.ones(3), data_size[1:],
@@ -76,28 +76,37 @@ def train_cur_data(epoch, data_index, moving_dataset, target_dataset, net, crite
             input_batch[slices, 0] = moving[patch_pos[0],
                                      patch_pos[1]:patch_pos[1] + patch_size,
                                      patch_pos[2]:patch_pos[2] + patch_size,
-                                     patch_pos[3]:patch_pos[3] + patch_size].cuda()
+                                     patch_pos[3]:patch_pos[3] + patch_size]
             input_batch[slices, 1] = target[patch_pos[0],
                                      patch_pos[1]:patch_pos[1] + patch_size,
                                      patch_pos[2]:patch_pos[2] + patch_size,
-                                     patch_pos[3]:patch_pos[3] + patch_size].cuda()
+                                     patch_pos[3]:patch_pos[3] + patch_size]
 
+        input_moving = moving.cuda()
+        input_target = target.cuda()
 
         # Zeroing gradients
-        #print 'net.conv_net.conv1_m.bias.grad before zero grad', net.conv_net.conv1_m.bias.grad
         optimizer.zero_grad()
 
         # Forward pass and averaging over all batches
         predicted_theta = net(input_batch).mean(0)
-        #print predicted_theta
+        # print predicted_theta
 
-        #print 'net.conv_net.conv1_m.bias.grad before backward', net.conv_net.conv1_m.bias.grad
+        # Affine transform
+        predicted_image = at.affine_transform(input_moving, predicted_theta, data_size)
+        '''
+        plt.subplot(121)
+        plt.imshow(predicted_image[0,0, int(predicted_image.shape[2]/2)].detach().cpu(), cmap='gray')
+        plt.subplot(122)
+        plt.imshow(target[0,int(target.shape[1]/2)].detach().cpu(), cmap='gray')
+        plt.show()
+        '''
 
-        loss = criterion(predicted_theta, target.cuda(), moving.cuda(), data_size)
-        loss.backward(retain_graph=True)
-
-        #print 'net.conv_net.conv1_m.bias.grad after backward', net.conv_net.conv1_m.bias.grad
-        #print loss
+        loss = criterion(predicted_image, input_target)
+        if iters + 1 == N:
+            loss.backward()
+        else:
+            loss.backward(retain_graph=True)
 
         loss_value = loss.item()
         optimizer.step()
@@ -111,6 +120,7 @@ def train_cur_data(epoch, data_index, moving_dataset, target_dataset, net, crite
                           'network_feature': features,
                           'state_dict': cur_state_dict}
 
+            print 'Saving model...'
             torch.save(model_info, model_name)
 
 
@@ -130,12 +140,13 @@ def train_network(moving_dataset, target_dataset, features, n_epochs, learning_r
                            optimizer,
                            model_name,
                            batch_size)
-
+            gc.collect()
+            torch.cuda.empty_cache()
 
 if __name__ == '__main__':
     # ===================================
     features = 32
-    batch_size = 64
+    batch_size = 32
     patch_size = 30
     output_name = ['/home/anders/affine_registration/output/']
     model_name = '/home/anders/affine_registration/main/network_model.pht.tar'

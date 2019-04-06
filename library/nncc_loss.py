@@ -8,23 +8,10 @@ class NNCC(nn.Module):
     def __init__(self):
         super(NNCC, self).__init__()
 
-    def forward(self, theta, target_image, moving_image, data_size):
-        N, D, H, W = data_size
-
-        # Adding channel element
-        target_image = target_image.unsqueeze(1)
-        moving_image = moving_image.unsqueeze(1)
-
-        # Extending theta to include batches
-        predicted_theta = torch.empty(N, theta.shape[0], theta.shape[1]).cuda()
-        predicted_theta[:] = theta
-
-        affine_grid = at.affine_grid_generator_3D(predicted_theta, (N, 1, D, H, W))
-        predicted_image = F.grid_sample(moving_image, affine_grid)
-
+    def forward(self, moving_image, target_image):
         n_dims = tuple([i for i in range(len(moving_image.size()))])
 
-        moving = (predicted_image - torch.mean(predicted_image)).cuda()
+        moving = (moving_image - torch.mean(moving_image)).cuda()
         target = (target_image - torch.mean(target_image)).cuda()
 
         # print moving[0:5, 0:5]
