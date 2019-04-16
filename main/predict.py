@@ -155,6 +155,8 @@ if __name__ == '__main__':
     config = torch.load('/home/anders/affine_registration/library/OASIS_predict.pth.tar')
 
     start = time.time()
-    transformed_image = predict_image(moving_set, target_set)
+
+    test_image = torch.load(moving_set[0])
+    #transformed_image = predict_image(moving_set, target_set)
     stop = time.time()
     print 'Time elapsed =', stop - start

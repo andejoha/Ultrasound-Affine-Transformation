@@ -44,8 +44,8 @@ def affine_grid_generator_2D(theta, size):
     return grid
 
 
-def affine_transform(moving_image, theta, data_size):
-    N, D, H, W = data_size
+def affine_transform(moving_image, theta):
+    N, D, H, W = moving_image.shape
 
     # Adding channel element
     moving_image = moving_image.unsqueeze(1)
@@ -57,104 +57,6 @@ def affine_transform(moving_image, theta, data_size):
     affine_grid = affine_grid_generator_3D(predicted_theta, (N, 1, D, H, W)).cuda()
     predicted_image = F.grid_sample(moving_image, affine_grid)
     return predicted_image
-
-
-def translation(image, translation_vector):
-    translation_vector = np.array(translation_vector.cpu())
-
-    M = np.eye(4)
-    M[:-1, -1:] = translation_vector.reshape((3, 1))
-
-    transformed_image = snd.affine_transform(image, M)
-
-    return transformed_image
-
-
-def scaling(image, scaling_vector):
-    s_x = scaling_vector[0].cpu().numpy()
-    s_y = scaling_vector[1].cpu().numpy()
-    s_z = scaling_vector[2].cpu().numpy()
-
-    M = np.eye(3)
-    M[0, 0] = s_x
-    M[1, 1] = s_y
-    M[2, 2] = s_z
-
-    center = np.array(image.shape) * 0.5
-    offset = center - center.dot(M)
-
-    transformed_image = snd.affine_transform(image, M, offset=offset)
-
-    return transformed_image
-
-
-def old_scaling(image, scaling_vector):
-    # TODO: This can be optimized by combining the two loops into one.
-
-    s_x = scaling_vector[0].cpu().numpy()
-    s_y = scaling_vector[1].cpu().numpy()
-    s_z = scaling_vector[2].cpu().numpy()
-
-    transformed_image = np.zeros((int(image.shape[0] * s_x), int(image.shape[1] * s_y), int(image.shape[2] * s_z)))
-    transformed_image[:] = np.nan
-
-    for i in range(image.shape[0] - 1):
-        for j in range(image.shape[1] - 1):
-            for k in range(image.shape[2] - 1):
-                transformed_image[int(i * s_x), int(j * s_y), int(k * s_z)] = image[i, j, k]
-
-    n_pixels_image = image.shape[0] * image.shape[1] * image.shape[2]
-    n_pixels_transformed_image = transformed_image.shape[0] * transformed_image.shape[1] * transformed_image.shape[2]
-
-    x = np.zeros(abs(n_pixels_transformed_image - n_pixels_image))
-    y = np.zeros(abs(n_pixels_transformed_image - n_pixels_image))
-    z = np.zeros(abs(n_pixels_transformed_image - n_pixels_image))
-
-    n = 0
-    for i in range(transformed_image.shape[0]):
-        for j in range(transformed_image.shape[1]):
-            for k in range(transformed_image.shape[2]):
-                if np.isnan(transformed_image[i, j, k]):
-                    x[n] = i
-                    y[n] = j
-                    z[n] = k
-                    n += 1
-
-    trilinear = trilinear_interpolate(image, x / s_x, y / s_y, z / s_z)
-
-    for i in range(len(x)):
-        transformed_image[int(x[i]), int(y[i]), int(z[i])] = trilinear[i]
-
-    return transformed_image
-
-
-def rotation(image, theta):
-    theta = float(theta)
-
-    R_x = np.array([np.array([1, 0, 0, 0]),
-                    np.array([0, np.cos(theta), -np.sin(theta), 0]),
-                    np.array([0, np.sin(theta), np.cos(theta), 0]),
-                    np.array([0, 0, 0, 1])])
-
-    R_y = np.array([np.array([np.cos(theta), 0, np.sin(theta), 0]),
-                    np.array([0, 1, 0, 0]),
-                    np.array([-np.sin(theta), 0, np.sin(theta), 0]),
-                    np.array([0, 0, 0, 1])])
-
-    R_z = np.array([np.array([np.cos(theta), -np.sin(theta), 0, 0]),
-                    np.array([np.sin(theta), np.cos(theta), 0, 0]),
-                    np.array([0, 0, 1, 0]),
-                    np.array([0, 0, 0, 1])])
-
-    R = np.array([np.array([np.cos(theta), -np.sin(theta), 0]),
-                  np.array([np.sin(theta), np.cos(theta), 0]),
-                  np.array([0, 0, 1])])
-
-    transformed_image = snd.affine_transform(image, R_x)
-    transformed_image = snd.affine_transform(transformed_image, R_y)
-    transformed_image = snd.affine_transform(transformed_image, R_z)
-
-    return transformed_image
 
 
 def trilinear_interpolate(im, x, y, z):

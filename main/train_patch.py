@@ -31,7 +31,7 @@ def create_net(features, continue_from_parameter=None):
 
 
 def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
-                   model_name, batch_size):
+                   model_name, batch_size, stride=14):
     # Loading images
     #moving = torch.load(moving_dataset).float()
     #target = torch.load(target_dataset).float()
@@ -39,14 +39,52 @@ def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
     data_size = moving.size()
 
     # Initializing batch variables
-    input_batch = torch.zeros(1, 2, data_size[1], data_size[2], data_size[3]).cuda()
+    input_batch = torch.zeros(batch_size, 2, patch_size, patch_size, patch_size).cuda()
 
-    N = data_size[0]
+    # Creates a flat array in indexes corresponding to patches in the target and moving images
+    flat_idx = util.calculatePatchIdx3D(data_size[0], patch_size * torch.ones(3), data_size[1:],
+                                        stride * torch.ones(3))
+    flat_idx_select = torch.zeros(flat_idx.size())
+
+    # Remove "black" patches
+    for patch_idx in range(1, flat_idx.size()[0]):
+        # Converts from fattened idx array to position in 3D image.
+        patch_pos = util.idx2pos_4D(flat_idx[patch_idx], data_size[1:])
+        moving_patch = moving[patch_pos[0],
+                       patch_pos[1]:patch_pos[1] + patch_size,
+                       patch_pos[2]:patch_pos[2] + patch_size,
+                       patch_pos[3]:patch_pos[3] + patch_size]
+        target_patch = target[patch_pos[0],
+                       patch_pos[1]:patch_pos[1] + patch_size,
+                       patch_pos[2]:patch_pos[2] + patch_size,
+                       patch_pos[3]:patch_pos[3] + patch_size]
+
+        # Check if "Black" patch
+        if torch.sum(moving_patch) + torch.sum(target_patch) != 0:
+            flat_idx_select[patch_idx] = 1
+
+    flat_idx_select = flat_idx_select.byte()
+    flat_idx = torch.masked_select(flat_idx, flat_idx_select)
+
+    N = flat_idx.size()[0] / batch_size
 
     # Main training loop
     for iters in range(N):
-        input_batch[:, 0] = moving[iters]
-        input_batch[:, 1] = target[iters]
+        train_idx = torch.rand(batch_size).double() * flat_idx.size()[0]
+        train_idx = torch.floor(train_idx).long()
+        for slices in range(batch_size):
+            patch_pos = util.idx2pos_4D(flat_idx[train_idx[slices]], data_size[1:])
+            input_batch[slices, 0] = moving[patch_pos[0],
+                                     patch_pos[1]:patch_pos[1] + patch_size,
+                                     patch_pos[2]:patch_pos[2] + patch_size,
+                                     patch_pos[3]:patch_pos[3] + patch_size].cuda()
+            input_batch[slices, 1] = target[patch_pos[0],
+                                     patch_pos[1]:patch_pos[1] + patch_size,
+                                     patch_pos[2]:patch_pos[2] + patch_size,
+                                     patch_pos[3]:patch_pos[3] + patch_size].cuda()
+
+        #input_moving = moving.cuda()
+        #input_target = target.cuda()
 
         # Zeroing gradients
         optimizer.zero_grad()
@@ -58,7 +96,10 @@ def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
         predicted_image = at.affine_transform(input_batch[:, 0], predicted_theta)
 
         loss = criterion(predicted_image.squeeze(1), input_batch[:, 1])
-        loss.backward()
+        if iters + 1 == N:
+            loss.backward()
+        else:
+            loss.backward()
 
         loss_value = loss.item()
         optimizer.step()
@@ -85,8 +126,6 @@ def train_network(files, features, n_epochs, learning_rate, batch_size, model_na
         for data_index in range(len(files)):
             image = HDF5Image(files[data_index])
 
-            print image.shape
-
             moving_dataset = torch.from_numpy(image.data[:-1])
             target_dataset = torch.from_numpy(image.data[1:])
 
@@ -100,6 +139,7 @@ def train_network(files, features, n_epochs, learning_rate, batch_size, model_na
                            model_name,
                            batch_size)
             gc.collect()
+            torch.cuda.empty_cache()
 
 
 if __name__ == '__main__':
@@ -109,7 +149,7 @@ if __name__ == '__main__':
     patch_size = 30
     output_name = ['/home/anders/affine_registration/output/']
     model_name = '/home/anders/affine_registration/main/network_model.pht.tar'
-    n_epochs = 2
+    n_epochs = 3
     learning_rate = 0.0001
     # ===================================
 

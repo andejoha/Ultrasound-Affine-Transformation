@@ -5,7 +5,7 @@ import cv2
 import os
 import nibabel as nib
 from scipy.ndimage.filters import gaussian_filter
-from skimage.exposure import equalize_hist
+import torch
 
 
 class HDF5Image:
@@ -37,7 +37,7 @@ class HDF5Image:
         else:
             return [[[[None]]]]
 
-    def display_image(self, frame_number=1, axis=0, multi_image=False):
+    def display_image(self, frame_number=0, axis=0, multi_image=False):
         # When "multi_image=True" you can have multiple windows open at the same time, but remember to add
         # cv2.waitKey(0)
         # cv2.destroyAllWindows()
@@ -162,12 +162,12 @@ def convert_all_to_nii(ultrasound_data_dir):
 
 
 if __name__ == '__main__':
-    file1 = '/media/anders/TOSHIBA_EXT1/ultrasound_examples/_0121835/NIFTI/HA3C98PM/HA3C98PM_4.nii'
+    file1 = '/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8E.h5'
     # file2 = '/media/anders/TOSHIBA_EXT1/ultrasound_examples/_0121835/NIFTI/HA3C98PM/HA3C98PM_5.nii'
     # file3 = '/home/anders/devel/test/HA3C98PM_4.nii'
     # file4 = '/home/anders/devel/test/HA3C98PM_5.nii'
 
-    image1 = NIFTIImage(file1)
+    image1 = HDF5Image(file1)
     # image2 = NIFTIImage(file2)
     # image3 = NIFTIImage(file3)
     # image4 = NIFTIImage(file4)
