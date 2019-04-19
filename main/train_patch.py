@@ -15,7 +15,6 @@ from hdf5_file_process import HDF5Image
 # External libraries
 import torch
 import torch.optim as optim
-import matplotlib.pyplot as plt
 
 
 def create_net(features, continue_from_parameter=None):
@@ -33,8 +32,8 @@ def create_net(features, continue_from_parameter=None):
 def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
                    model_name, batch_size, stride=14):
     # Loading images
-    #moving = torch.load(moving_dataset).float()
-    #target = torch.load(target_dataset).float()
+    # moving = torch.load(moving_dataset).float()
+    # target = torch.load(target_dataset).float()
 
     data_size = moving.size()
 
@@ -83,8 +82,8 @@ def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
                                      patch_pos[2]:patch_pos[2] + patch_size,
                                      patch_pos[3]:patch_pos[3] + patch_size].cuda()
 
-        #input_moving = moving.cuda()
-        #input_target = target.cuda()
+        # input_moving = moving.cuda()
+        # input_target = target.cuda()
 
         # Zeroing gradients
         optimizer.zero_grad()
@@ -95,16 +94,23 @@ def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
         # Affine transform
         predicted_image = at.affine_transform(input_batch[:, 0], predicted_theta)
 
-        loss = criterion(predicted_image.squeeze(1), input_batch[:, 1])
-        if iters + 1 == N:
-            loss.backward()
-        else:
-            loss.backward()
+        '''
+        plt.subplot(131)
+        plt.imshow(input_batch[0, 0, int(input_batch.shape[2] / 2)].detach().cpu(), cmap='gray')
+        plt.subplot(132)
+        plt.imshow(input_batch[0, 1, int(input_batch.shape[2] / 2)].detach().cpu(), cmap='gray')
+        plt.subplot(133)
+        plt.imshow(predicted_image[0, 0, int(predicted_image.shape[2] / 2)].detach().cpu(), cmap='gray')
+        plt.show()
+        '''
 
+        loss = criterion(predicted_image.squeeze(1), input_batch[:, 1])
         loss_value = loss.item()
+        loss.backward()
+
         optimizer.step()
         print('====> Epoch: {}, datapart: {}, iter: {}/{}, loss: {}'.format(
-            epoch + 1, data_index + 1, iters, N, loss_value / batch_size))
+            epoch + 1, data_index + 1, iters, N, loss_value))
 
         if iters % 100 == 0 or iters == N - 1:
             cur_state_dict = net.state_dict()
@@ -139,17 +145,26 @@ def train_network(files, features, n_epochs, learning_rate, batch_size, model_na
                            model_name,
                            batch_size)
             gc.collect()
-            torch.cuda.empty_cache()
+    criterion.plot_loss(n_epochs,
+                        '/home/anders/Ultrasound-Affine-Transformation/figures/' + time_string + '_patch_network_loss.eps')
 
 
 if __name__ == '__main__':
+    time_now = time.localtime()
+    time_string = str(time_now[0]) + '.' + \
+                  str(time_now[1]).zfill(2) + '.' + \
+                  str(time_now[2]).zfill(2) + '_' + \
+                  str(time_now[3]).zfill(2) + ':' + \
+                  str(time_now[4]).zfill(2) + ':' + \
+                  str(time_now[5]).zfill(2)
+
     # ===================================
     features = 32
     batch_size = 64
     patch_size = 30
-    output_name = ['/home/anders/affine_registration/output/']
-    model_name = '/home/anders/affine_registration/main/network_model.pht.tar'
-    n_epochs = 3
+    output_name = ['/home/anders/Ultrasound-Affine-Transformation/output/']
+    model_name = '/home/anders/Ultrasound-Affine-Transformation/weights/' + time_string + '_patch_network_model.pht.tar'
+    n_epochs = 5
     learning_rate = 0.0001
     # ===================================
 
@@ -166,7 +181,6 @@ if __name__ == '__main__':
              '/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT9E.h5',
              '/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT9G.h5',
              '/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT9I.h5']
-
 
     start = time.time()
     train_network(files, features, n_epochs, learning_rate, batch_size, model_name)

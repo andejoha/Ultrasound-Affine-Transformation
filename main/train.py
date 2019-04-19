@@ -63,7 +63,7 @@ def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
         loss_value = loss.item()
         optimizer.step()
         print('====> Epoch: {}, datapart: {}, iter: {}/{}, loss: {}'.format(
-            epoch + 1, data_index + 1, iters, N, loss_value / batch_size))
+            epoch + 1, data_index + 1, iters, N, loss_value))
 
         if iters % 100 == 0 or iters == N - 1:
             cur_state_dict = net.state_dict()
@@ -107,8 +107,8 @@ if __name__ == '__main__':
     features = 32
     batch_size = 64
     patch_size = 30
-    output_name = ['/home/anders/affine_registration/output/']
-    model_name = '/home/anders/affine_registration/main/network_model.pht.tar'
+    output_name = ['/home/anders/Ultrasound-Affine-Transformation/output/']
+    model_name = '/home/anders/Ultrasound-Affine-Transformation/weights/network_model.pht.tar'
     n_epochs = 2
     learning_rate = 0.0001
     # ===================================

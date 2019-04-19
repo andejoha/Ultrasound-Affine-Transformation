@@ -152,7 +152,7 @@ if __name__ == '__main__':
     output_name = ['/home/anders/affine_registration/output/']
     # ===================================
 
-    config = torch.load('/home/anders/affine_registration/library/OASIS_predict.pth.tar')
+    config = torch.load('/home/anders/Ultrasound-Affine-Transformation/weights/network_model.pth.tar')
 
     start = time.time()
 
