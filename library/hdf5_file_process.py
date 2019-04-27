@@ -162,7 +162,7 @@ def convert_all_to_nii(ultrasound_data_dir):
 
 
 if __name__ == '__main__':
-    file1 = '/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8E.h5'
+    file1 = '/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT9I.h5'
     # file2 = '/media/anders/TOSHIBA_EXT1/ultrasound_examples/_0121835/NIFTI/HA3C98PM/HA3C98PM_5.nii'
     # file3 = '/home/anders/devel/test/HA3C98PM_4.nii'
     # file4 = '/home/anders/devel/test/HA3C98PM_5.nii'

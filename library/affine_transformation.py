@@ -1,3 +1,4 @@
+import math
 import torch
 import scipy
 import numpy as np
@@ -5,6 +6,8 @@ import numpy.linalg
 import scipy.ndimage as snd
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
+from hdf5_file_process import HDF5Image
+import cv2
 
 import time
 
@@ -45,17 +48,21 @@ def affine_grid_generator_2D(theta, size):
 
 
 def affine_transform(moving_image, theta):
-    N, D, H, W = moving_image.shape
+    N, C, D, H, W = moving_image.shape
 
     # Adding channel element
-    moving_image = moving_image.unsqueeze(1)
+    #moving_image = moving_image.unsqueeze(1)
 
     # Extending theta to include batches
-    predicted_theta = torch.empty(N, theta.shape[0], theta.shape[1]).cuda()
+    predicted_theta = torch.empty(N, theta.shape[1], theta.shape[2]).cuda()
     predicted_theta[:] = theta
 
     affine_grid = affine_grid_generator_3D(predicted_theta, (N, 1, D, H, W)).cuda()
-    predicted_image = F.grid_sample(moving_image, affine_grid)
+    x = affine_grid[:, :, :, :, 0]
+    y = affine_grid[:, :, :, :, 1]
+    z = affine_grid[:, :, :, :, 2]
+
+    predicted_image = F.grid_sample(moving_image, affine_grid, padding_mode='border')
     return predicted_image
 
 
@@ -99,55 +106,103 @@ def trilinear_interpolate(im, x, y, z):
     return c_000 * w_000 + c_100 * w_100 + c_010 * w_010 + c_001 * w_001 + c_110 * w_110 + c_101 * w_101 + c_011 * w_011 + c_111 * w_111
 
 
+def get_pixel_value(img, x,y,z):
+    print
+    shape = img.shape
+    N = shape[0]
+    D = shape[2]
+    H = shape[3]
+    W = shape[4]
+
+    batch_idx = torch.arange(N)
+    print batch_idx.shape
+    batch_idx = batch_idx.view(N, 1, 1, 1)
+    print batch_idx.shape
+    b = batch_idx.repeat(1,D,H,W)
+    print b
+
+    indices = torch.stack([b,z,y,x], dim=4)
+    out = torch.index_select(4, )
+
+
+def trilinear_sampler(img, x, y, z):
+    img = img.cpu()
+    x = x.cpu()
+    y = y.cpu()
+    z = z.cpu()
+
+    print img.shape
+
+    x0 = torch.floor(x).long()
+    x1 = x0 + 1
+    y0 = torch.floor(y).long()
+    y1 = y0 + 1
+    z0 = torch.floor(z).long()
+    z1 = z0 + 1
+
+    x0 = torch.clamp(x0, min=0, max=img.shape[2] - 1)
+    x1 = torch.clamp(x1, min=0, max=img.shape[2] - 1)
+    y0 = torch.clamp(y0, min=0, max=img.shape[3] - 1)
+    y1 = torch.clamp(y1, min=0, max=img.shape[3] - 1)
+    z0 = torch.clamp(z0, min=0, max=img.shape[4] - 1)
+    z1 = torch.clamp(z1, min=0, max=img.shape[4] - 1)
+
+    print x0.shape
+
+    test = get_pixel_value(img, x0, y0, z0)
+
+
+    c_000 = img[:, :, x0, y0, z0]
+    c_100 = img[:, :, x1, y0, z0]
+    c_010 = img[:, :, x0, y1, z0]
+    c_001 = img[:, :, x0, y0, z1]
+    c_110 = img[:, :, x1, y1, z0]
+    c_101 = img[:, :, x1, y0, z1]
+    c_011 = img[:, :, x0, y1, z1]
+    c_111 = img[:, :, x1, y1, z1]
+
+    print c_000.shape
+
+    x0 = x0.float()
+    x1 = x1.float()
+    y0 = y0.float()
+    y1 = y1.float()
+    z0 = z0.float()
+    z1 = z1.float()
+
+    w_000 = (x1 - x) * (y1 - y) * (z1 - z)
+    w_100 = (x - x0) * (y1 - y) * (z1 - z)
+    w_010 = (x1 - x) * (y - y0) * (z1 - z)
+    w_001 = (x1 - x) * (y1 - y) * (z - z0)
+    w_110 = (x - x0) * (y - y0) * (z1 - z)
+    w_101 = (x - x0) * (y1 - y) * (z - z0)
+    w_011 = (x1 - x) * (y - y0) * (z - z0)
+    w_111 = (x - x0) * (y - y0) * (z - z0)
+
+    out = c_000 * w_000 + c_100 * w_100 + c_010 * w_010 + c_001 * w_001 + c_110 * w_110 + c_101 * w_101 + c_011 * w_011 + c_111 * w_111
+    return out
+
+
 if __name__ == '__main__':
     # start = time.time()
+    image = HDF5Image('/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8E.h5')
+    image = torch.from_numpy(image.data).cuda().float()
+    image = image.unsqueeze(1)
 
-    np_image = scipy.misc.ascent()
-    image = torch.empty(1, 1, np_image.shape[0], np_image.shape[1]).cuda()
-    image[0, 0] = torch.tensor(np_image)
+    angle = math.pi/2
+    theta = torch.tensor([[[1, 0, 0, -0.5],
+                           [0, 1, 0, -0.5],
+                           [0, 0, 1, 0]]])
 
-    # translation_vector = torch.ones(3).cuda() * -3
-    # scaling_vector = torch.ones(3).cuda() * 0.5
-    # theta = torch.ones(1).cuda() * np.pi / 12
+    warped_image = affine_transform(image, theta)
 
-    # transformed_image = translation(image, translation_vector)
-    # transformed_image = scaling(image, scaling_vector)
-    # transformed_image = rotation(image, theta)
+    warped_image = np.array(warped_image.cpu(), dtype=np.uint8)
 
-    # plt.imshow(transformed_image, cmap='gray')
-
-    # stop = time.time()
-    # print 'Time elapsed =', stop - start
-    # plt.show()
-
-    # plt.imshow(transformed_image, cmap='gray')
-    # plt.grid()
-    # plt.show()
-
-    theta_3D = torch.zeros(1, 3, 4).cuda()
-    theta_3D[0, :, :-1] = torch.eye(3)*1.5
-    input = torch.empty(1, 1, image.shape[2], image.shape[2], image.shape[3]).cuda()
-    size_3D = input.shape
-
-    for i in range(512):
-        input[0, 0, i, :, :] = image[0, 0]
-
-    affine_grid = affine_grid_generator_3D(theta_3D, size_3D)
-    output = torch.nn.functional.grid_sample(input, affine_grid)
-    print output
-
-    plt.subplot(121)
-    plt.imshow(input[0, 0, 256].cpu(), cmap='gray')
-    plt.subplot(122)
-    plt.imshow(output[0, 0, 256].cpu(), cmap='gray')
-    plt.show()
-
-    theta_2D = torch.zeros(1, 2, 3).cuda()
-    theta_2D[0, :, :-1] = torch.eye(2)
-    size_2D = (1, 1, image.shape[2], image.shape[3])
-
-    affine_grid = affine_grid_generator_2D(theta_2D, size_2D)
-    output = torch.nn.functional.grid_sample(image, affine_grid)
-
-    # plt.imshow(output[0,0], cmap='gray')
-    # plt.show()
+    cv2.imshow('x', warped_image[2,0, int(warped_image.shape[2]/2), :, :])
+    cv2.imwrite('/home/anders/Ultrasound-Affine-Transformation/figures/affine_examples/trans_x.png', warped_image[2,0, int(warped_image.shape[2]/2), :, :])
+    #cv2.imshow('y', warped_image[2,0, :, int(warped_image.shape[3]/2), :])
+    #cv2.imwrite('/home/anders/Ultrasound-Affine-Transformation/figures/affine_examples/trans_y.png', warped_image[2,0, :, int(warped_image.shape[3]/2), :])
+    #cv2.imshow('z', warped_image[2,0, :, :, int(warped_image.shape[4]/2)])
+    #cv2.imwrite('/home/anders/Ultrasound-Affine-Transformation/figures/affine_examples/trans_z.png', warped_image[2,0, :, :, int(warped_image.shape[4]/2)])
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
