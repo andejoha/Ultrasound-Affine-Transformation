@@ -5,7 +5,6 @@ import cv2
 import os
 import nibabel as nib
 from scipy.ndimage.filters import gaussian_filter
-import torch
 
 
 class HDF5Image:
@@ -16,8 +15,8 @@ class HDF5Image:
         except:
             print('An error occurred while trying to read ' + filename)
         img = h5py.File(filename, 'r')
-        cartesian_volumes = img[img.keys()[0]]
-        self.image_geometry = img[img.keys()[1]]
+        cartesian_volumes = img[list(img.keys())[0]]
+        self.image_geometry = img[list(img.keys())[1]]
         vol = np.empty(len(cartesian_volumes), dtype=object)
         i = 0
         for ele in cartesian_volumes:
@@ -94,7 +93,8 @@ class HDF5Image:
         # image.SetOrigin((float(origin[0]), float(origin[1]), float(origin[2])))
         # image.SetSpacing((float(voxelsize[0]), float(voxelsize[1]), float(voxelsize[2])))
 
-        print 'Creating file:', output_filename
+        print('Creating file:', output_filename)
+        print('Creating file:', output_filename)
         writer = sitk.ImageFileWriter()
         writer.SetFileName(output_filename)
         writer.Execute(image)
@@ -134,7 +134,7 @@ class NIFTIImage:
             cv2.imshow('NIFTIImage (axis=2): ' + self.filename, image_slice)
             cv2.imwrite('Figures/' + self.filename.split('/')[-1][:-4] + '.png', image_slice)
             if not multi_image:
-                print 'Press any key to continue...'
+                print('Press any key to continue...')
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()
         else:

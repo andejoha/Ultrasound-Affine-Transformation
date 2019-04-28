@@ -1,9 +1,7 @@
-import math
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
 
 
 class ConvNet(nn.Module):
@@ -107,4 +105,4 @@ if __name__ == '__main__':
     theta = net(x)
     theta = theta.view(-1, 3, 4)
 
-    print theta
+    print(theta)

@@ -1,15 +1,9 @@
 import math
 import torch
-import scipy
 import numpy as np
-import numpy.linalg
-import scipy.ndimage as snd
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
 from hdf5_file_process import HDF5Image
 import cv2
-
-import time
 
 
 def affine_grid_generator_3D(theta, size):
@@ -107,7 +101,6 @@ def trilinear_interpolate(im, x, y, z):
 
 
 def get_pixel_value(img, x,y,z):
-    print
     shape = img.shape
     N = shape[0]
     D = shape[2]
@@ -115,11 +108,8 @@ def get_pixel_value(img, x,y,z):
     W = shape[4]
 
     batch_idx = torch.arange(N)
-    print batch_idx.shape
     batch_idx = batch_idx.view(N, 1, 1, 1)
-    print batch_idx.shape
     b = batch_idx.repeat(1,D,H,W)
-    print b
 
     indices = torch.stack([b,z,y,x], dim=4)
     out = torch.index_select(4, )
@@ -131,7 +121,6 @@ def trilinear_sampler(img, x, y, z):
     y = y.cpu()
     z = z.cpu()
 
-    print img.shape
 
     x0 = torch.floor(x).long()
     x1 = x0 + 1
@@ -147,7 +136,6 @@ def trilinear_sampler(img, x, y, z):
     z0 = torch.clamp(z0, min=0, max=img.shape[4] - 1)
     z1 = torch.clamp(z1, min=0, max=img.shape[4] - 1)
 
-    print x0.shape
 
     test = get_pixel_value(img, x0, y0, z0)
 
@@ -161,7 +149,6 @@ def trilinear_sampler(img, x, y, z):
     c_011 = img[:, :, x0, y1, z1]
     c_111 = img[:, :, x1, y1, z1]
 
-    print c_000.shape
 
     x0 = x0.float()
     x1 = x1.float()

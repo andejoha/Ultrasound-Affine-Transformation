@@ -1,22 +1,24 @@
 import gc
+import os
 import sys
 import time
 
-sys.path.append('../library')
-sys.path.append('../library/quicksilver')
+# Adding all relevant modules to PATH
+root_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+for root, dir, files in os.walk(root_path):
+    if '.' not in root and '_' not in root:
+        sys.path.append(root)
 
 # Custom libraries
-import network
 from network2 import Net
 import util
-import affine_transformation as at
 from nncc_loss import NNCC
 from hdf5_file_process import HDF5Image
+from pairwise import NCC
 
 # External libraries
 import torch
 import torch.optim as optim
-import torch.nn as nn
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -24,7 +26,7 @@ def create_net(features, continue_from_parameter=None):
     net = Net().cuda()
 
     if continue_from_parameter != None:
-        print 'Loading existing weights!'
+        print('Loading existing weights!')
         weights = torch.load(continue_from_parameter)
         net.load_state_dict(weights['state_dict'])
 
@@ -32,7 +34,7 @@ def create_net(features, continue_from_parameter=None):
     return net
 
 
-def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
+def train_cur_data(epoch, data_index, moving, target, net, optimizer,
                    model_name, batch_size, stride=14):
     # Loading images
     # moving = torch.load(moving_dataset).float()
@@ -70,7 +72,7 @@ def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
     flat_idx_select = flat_idx_select.byte()
     flat_idx = torch.masked_select(flat_idx, flat_idx_select)
 
-    N = flat_idx.size()[0] / batch_size
+    N = int(flat_idx.size()[0] / batch_size)
 
     # Main training loop
     for iters in range(N):
@@ -97,7 +99,7 @@ def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
         predicted_image = net(input_batch[:,0])
         # Affine transform
         #predicted_image = at.affine_transform(input_batch[:, 0], predicted_theta)
-        # print predicted_theta
+        # print(predicted_theta)
         '''
         plt.subplot(131)
         plt.imshow(input_batch[0, 0, int(input_batch.shape[2] / 2)].detach().cpu(), cmap='gray')
@@ -107,7 +109,11 @@ def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
         plt.imshow(predicted_image[0, 0, int(predicted_image.shape[2] / 2)].detach().cpu(), cmap='gray')
         plt.show()
         '''
-        loss = criterion(predicted_image.squeeze(1), input_batch[:, 1])
+
+        print(predicted_image.shape)
+        print(input_batch.shape)
+        loss = NCC(predicted_image.squeeze(1), input_batch[:, 1])
+        print(loss)
         loss_value = loss.item()
         loss.backward()
         loss_storage = torch.cat((loss_storage, loss.detach().cpu().unsqueeze(0)))
@@ -123,13 +129,12 @@ def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
                           'network_feature': features,
                           'state_dict': cur_state_dict}
 
-            print 'Saving model...'
+            print('Saving model...')
             torch.save(model_info, model_name)
     return loss_storage
 
 def train_network(files, features, n_epochs, learning_rate, batch_size, model_name):
     net = create_net(features)
-    criterion = NNCC()
     optimizer = optim.Adam(net.parameters(), learning_rate)
     loss_storage = torch.tensor([])
     for data_index in range(len(files)):
@@ -147,7 +152,6 @@ def train_network(files, features, n_epochs, learning_rate, batch_size, model_na
                            moving_dataset,
                            target_dataset,
                            net,
-                           criterion,
                            optimizer,
                            model_name,
                            batch_size)
@@ -201,6 +205,6 @@ if __name__ == '__main__':
     start = time.time()
     train_network(files, features, n_epochs, learning_rate, batch_size, model_name)
     stop = time.time()
-    print 'Time elapsed =', stop - start
+    print('Time elapsed =', stop - start)
 
     # TODO: Check that moving_dataset and target_dataset has equal size?

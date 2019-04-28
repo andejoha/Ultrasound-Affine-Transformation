@@ -4,13 +4,7 @@
 from __future__ import print_function
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import torchvision
-from torchvision import datasets, transforms
 import matplotlib.pyplot as plt
-import numpy as np
-from hdf5_file_process import HDF5Image
 
 from affine_transformation import affine_transform
 
