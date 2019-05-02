@@ -1,10 +1,12 @@
 import SimpleITK as sitk
+import torch
 import numpy as np
 import h5py
 import cv2
 import os
 import nibabel as nib
 from scipy.ndimage.filters import gaussian_filter
+import matplotlib.pyplot as plt
 
 
 class HDF5Image:
@@ -15,26 +17,24 @@ class HDF5Image:
         except:
             print('An error occurred while trying to read ' + filename)
         img = h5py.File(filename, 'r')
-        cartesian_volumes = img[list(img.keys())[0]]
+        self.cartesian_volumes = img[list(img.keys())[0]]
         self.image_geometry = img[list(img.keys())[1]]
-        vol = np.empty(len(cartesian_volumes), dtype=object)
-        i = 0
-        for ele in cartesian_volumes:
-            vol[i] = cartesian_volumes[ele]
-            i += 1
-        self.data = self.get_vol_data(vol)
-        self.shape = self.data.shape
 
-    def get_vol_data(self, vol):
-        if vol[0] != None:
-            data = []
-            i = 0
-            for ele in vol:
-                data.append(ele.value)
-                i += 1
-            return np.array(data)
-        else:
-            return [[[[None]]]]
+        self.shape = list(self.cartesian_volumes.values())[0].shape
+        self.shape = (len(list(self.cartesian_volumes.values())),
+                      self.shape[0],
+                      self.shape[1],
+                      self.shape[2])
+
+        self.data = self.get_vol_data()
+
+    def get_vol_data(self):
+        data = torch.empty(self.shape)
+        i = 0
+        for ele in self.cartesian_volumes:
+            data[i] = torch.from_numpy(self.cartesian_volumes[ele].value)
+            i += 1
+        return data
 
     def display_image(self, frame_number=0, axis=0, multi_image=False):
         # When "multi_image=True" you can have multiple windows open at the same time, but remember to add
@@ -68,17 +68,21 @@ class HDF5Image:
 
     # Applies a Gaussian blur filter to the data
     def gaussian_blur(self, sigma):
-        self.data = gaussian_filter(self.data, sigma)
+        self.data = torch.from_numpy(gaussian_filter(self.data, sigma))
 
     # Preforms a histogram_equalization to the data.
+
+
     def histogram_equalization(self):
-        for i in range(self.data.shape[0]):
-            hist, bins = np.histogram(self.data[i].flatten(), 256, [0, 256])
+        data = self.data.numpy().astype('uint8')
+        for i in range(data.shape[0]):
+            hist, bins = np.histogram(data[i].flatten(), 256, [0, 256])
             cdf = hist.cumsum()
             cdf_m = np.ma.masked_equal(cdf, 0)
             cdf_m = (cdf_m - cdf_m.min()) * 255 / (cdf_m.max() - cdf_m.min())
             cdf = np.ma.filled(cdf_m, 0).astype('uint8')
-            self.data[i] = cdf[self.data[i]]
+            data[i] = cdf[data[i]]
+        self.data = torch.from_numpy(data)
 
     def convert_to_nii(self, data, output_filename):
         # OBS! ITK is using the axis orientation (x,y,z) while Numpy is using (z,y,x).
@@ -104,7 +108,7 @@ class NIFTIImage:
     def __init__(self, filename):
         self.filename = filename
         img = nib.load(filename)
-        self.data = np.array(img.get_fdata(), np.uint8)
+        self.data = torch.tensor(img.get_fdata())
         self.shape = self.data.shape
 
     def display_image(self, axis=0, multi_image=False):
@@ -113,8 +117,10 @@ class NIFTIImage:
         # cv2.destroyAllWindows()
         # as this is not be included here.
 
+        data = self.data.numpy()
+
         if axis == 0:
-            image_slice = (np.squeeze(self.data[int(round(self.shape[0] / 2)), :, :]))
+            image_slice = (np.squeeze(data[int(round(self.shape[0] / 2)), :, :]))
             cv2.imshow('NIFTIImage (axis=0): ' + self.filename, image_slice)
             cv2.imwrite('Figures/' + self.filename.split('/')[-1][:-4] + '.png', image_slice)
             if not multi_image:
@@ -122,7 +128,7 @@ class NIFTIImage:
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()
         elif axis == 1:
-            image_slice = np.squeeze(self.data[:, int(round(self.shape[1] / 2)), :])
+            image_slice = np.squeeze(data[:, int(round(self.shape[1] / 2)), :])
             cv2.imshow('NIFTIImage (axis=1): ' + self.filename, image_slice)
             cv2.imwrite('Figures/' + self.filename.split('/')[-1][:-4] + '.png', image_slice)
             if not multi_image:
@@ -130,7 +136,7 @@ class NIFTIImage:
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()
         elif axis == 2:
-            image_slice = np.squeeze(self.data[:, :, int(round(self.shape[2] / 2))])
+            image_slice = np.squeeze(data[:, :, int(round(self.shape[2] / 2))])
             cv2.imshow('NIFTIImage (axis=2): ' + self.filename, image_slice)
             cv2.imwrite('Figures/' + self.filename.split('/')[-1][:-4] + '.png', image_slice)
             if not multi_image:
@@ -162,17 +168,19 @@ def convert_all_to_nii(ultrasound_data_dir):
 
 
 if __name__ == '__main__':
-    file1 = '/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT9I.h5'
-    # file2 = '/media/anders/TOSHIBA_EXT1/ultrasound_examples/_0121835/NIFTI/HA3C98PM/HA3C98PM_5.nii'
+    # file1 = '/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT9I.h5'
+    file2 = '/media/anders/TOSHIBA_EXT1/ultrasound_examples/_0121835/NIFTI/HA3C98PM/HA3C98PM_5.nii'
     # file3 = '/home/anders/devel/test/HA3C98PM_4.nii'
     # file4 = '/home/anders/devel/test/HA3C98PM_5.nii'
 
-    image1 = HDF5Image(file1)
-    # image2 = NIFTIImage(file2)
+    # image1 = HDF5Image(file1)
+    image2 = NIFTIImage(file2)
     # image3 = NIFTIImage(file3)
     # image4 = NIFTIImage(file4)
 
-    image1.display_image()
+    print(image2.data)
+    image2.display_image()
+    # image1.display_image()
     # image3.display_image(multi_image=True)
     # image4.display_image()
 

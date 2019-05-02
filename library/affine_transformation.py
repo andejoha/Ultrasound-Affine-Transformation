@@ -2,7 +2,7 @@ import math
 import torch
 import numpy as np
 import torch.nn.functional as F
-from hdf5_file_process import HDF5Image
+from .hdf5_file_process import HDF5Image
 import cv2
 
 
@@ -42,20 +42,16 @@ def affine_grid_generator_2D(theta, size):
 
 
 def affine_transform(moving_image, theta):
-    N, C, D, H, W = moving_image.shape
+    N, D, H, W = moving_image.shape
 
-    # Adding channel element
-    #moving_image = moving_image.unsqueeze(1)
+    # Adding channel dimension
+    moving_image = moving_image.unsqueeze(1)
 
     # Extending theta to include batches
     predicted_theta = torch.empty(N, theta.shape[1], theta.shape[2]).cuda()
     predicted_theta[:] = theta
 
     affine_grid = affine_grid_generator_3D(predicted_theta, (N, 1, D, H, W)).cuda()
-    x = affine_grid[:, :, :, :, 0]
-    y = affine_grid[:, :, :, :, 1]
-    z = affine_grid[:, :, :, :, 2]
-
     predicted_image = F.grid_sample(moving_image, affine_grid, padding_mode='border')
     return predicted_image
 

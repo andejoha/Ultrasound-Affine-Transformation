@@ -3,18 +3,12 @@ import os
 import sys
 import time
 
-# Adding all relevant modules to PATH
-root_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-for root, dir, files in os.walk(root_path):
-    if '.' not in root and '_' not in root:
-        sys.path.append(root)
-
 # Custom libraries
-from network2 import Net
-import util
-from nncc_loss import NNCC
-from hdf5_file_process import HDF5Image
-from pairwise import NCC
+from library.network2 import PatchNet
+import library.quicksilver.util as util
+from library.ncc_loss import NCC
+from library.hdf5_file_process import HDF5Image
+import library.affine_transformation as at
 
 # External libraries
 import torch
@@ -22,8 +16,9 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 def create_net(features, continue_from_parameter=None):
-    net = Net().cuda()
+    net = PatchNet().cuda()
 
     if continue_from_parameter != None:
         print('Loading existing weights!')
@@ -34,15 +29,13 @@ def create_net(features, continue_from_parameter=None):
     return net
 
 
-def train_cur_data(epoch, data_index, moving, target, net, optimizer,
+def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
                    model_name, batch_size, stride=14):
     # Loading images
     # moving = torch.load(moving_dataset).float()
     # target = torch.load(target_dataset).float()
 
     data_size = moving.size()
-
-    loss_storage = torch.tensor([])
 
     # Initializing batch variables
     input_batch = torch.zeros(batch_size, 2, patch_size, patch_size, patch_size).cuda()
@@ -89,34 +82,33 @@ def train_cur_data(epoch, data_index, moving, target, net, optimizer,
                                      patch_pos[2]:patch_pos[2] + patch_size,
                                      patch_pos[3]:patch_pos[3] + patch_size].cuda()
 
-        #input_moving = moving.cuda()
+        # input_moving = moving.cuda()
         # input_target = target.cuda()
 
         # Zeroing gradients
         optimizer.zero_grad()
 
         # Forward pass and averaging over all batches
-        predicted_image = net(input_batch[:,0])
+        predicted_theta = net(input_batch[:, 0])
+
+
         # Affine transform
-        #predicted_image = at.affine_transform(input_batch[:, 0], predicted_theta)
-        # print(predicted_theta)
+        predicted_image = at.affine_transform(input_batch[:, 0], predicted_theta)
+        predicted_image = predicted_image.squeeze(1)
+
         '''
         plt.subplot(131)
         plt.imshow(input_batch[0, 0, int(input_batch.shape[2] / 2)].detach().cpu(), cmap='gray')
         plt.subplot(132)
         plt.imshow(input_batch[0, 1, int(input_batch.shape[2] / 2)].detach().cpu(), cmap='gray')
         plt.subplot(133)
-        plt.imshow(predicted_image[0, 0, int(predicted_image.shape[2] / 2)].detach().cpu(), cmap='gray')
+        plt.imshow(predicted_image[0, int(predicted_image.shape[1] / 2)].detach().cpu(), cmap='gray')
         plt.show()
         '''
 
-        print(predicted_image.shape)
-        print(input_batch.shape)
-        loss = NCC(predicted_image.squeeze(1), input_batch[:, 1])
-        print(loss)
+        loss = criterion(predicted_image, input_batch[:, 1])
         loss_value = loss.item()
         loss.backward()
-        loss_storage = torch.cat((loss_storage, loss.detach().cpu().unsqueeze(0)))
 
         optimizer.step()
         print('====> Epoch: {}, datapart: {}, iter: {}/{}, loss: {}'.format(
@@ -131,48 +123,33 @@ def train_cur_data(epoch, data_index, moving, target, net, optimizer,
 
             print('Saving model...')
             torch.save(model_info, model_name)
-    return loss_storage
 
 def train_network(files, features, n_epochs, learning_rate, batch_size, model_name):
     net = create_net(features)
+    criterion = NCC()
     optimizer = optim.Adam(net.parameters(), learning_rate)
-    loss_storage = torch.tensor([])
-    for data_index in range(len(files)):
-        for epoch in range(n_epochs):
+    for epoch in range(n_epochs):
+        for data_index in range(len(files)):
             image = HDF5Image(files[data_index])
-            #image.gaussian_blur(0.5)
-            #image.histogram_equalization()
-            #image.display_image()
+            image.gaussian_blur(1)
+            image.histogram_equalization()
+            # image.display_image()
 
-            moving_dataset = torch.from_numpy(image.data[:-1])
-            target_dataset = torch.from_numpy(image.data[1:])
+            moving_dataset = image.data[:-1]
+            target_dataset = image.data[1:]
 
-            loss = train_cur_data(epoch,
+            train_cur_data(epoch,
                            data_index,
                            moving_dataset,
                            target_dataset,
                            net,
+                           criterion,
                            optimizer,
                            model_name,
                            batch_size)
-
-            loss_storage = torch.cat((loss_storage, loss.mean(0, keepdim=True)))
-
             gc.collect()
-    #criterion.plot_loss(n_epochs, '/home/anders/Ultrasound-Affine-Transformation/figures/' + time_string + '_patch_network_loss.eps')
-    x = np.linspace(1, n_epochs + 1, len(loss_storage))
+    criterion.plot_loss(n_epochs, '/home/anders/Ultrasound-Affine-Transformation/figures/' + time_string + '_patch_network_loss.eps', learning_rate)
 
-    fig = plt.figure()
-    plt.plot(x, loss_storage.numpy())
-    #for i in range(1, n_epochs + 1):
-    #    plt.axvline(i, color='gray', linestyle='--')
-
-    plt.title('Training loss. Learning rate: ' + str(learning_rate))
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.grid()
-    fig.savefig('/home/anders/Ultrasound-Affine-Transformation/figures/'+time_string+'_patch_network_loss.eps', bbox_inches='tight')
-    plt.show()
 
 if __name__ == '__main__':
     time_now = time.localtime()
@@ -189,7 +166,7 @@ if __name__ == '__main__':
     patch_size = 30
     output_name = ['/home/anders/Ultrasound-Affine-Transformation/output/']
     model_name = '/home/anders/Ultrasound-Affine-Transformation/weights/' + time_string + '_patch_network_model.pht.tar'
-    n_epochs = 1000
+    n_epochs = 300
     learning_rate = 0.0001
     # ===================================
 
@@ -200,7 +177,8 @@ if __name__ == '__main__':
                       '/media/anders/TOSHIBA_EXT1/Training_set/target_HA3C98PQ.pth.tar',
                       '/media/anders/TOSHIBA_EXT1/Training_set/target_HA3C98Q4.pth.tar']
 
-    files = ['/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8E.h5']
+    files = ['/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8E.h5',
+             '']
 
     start = time.time()
     train_network(files, features, n_epochs, learning_rate, batch_size, model_name)
