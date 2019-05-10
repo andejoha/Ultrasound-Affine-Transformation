@@ -133,11 +133,13 @@ def train_network(files, features, n_epochs, learning_rate, batch_size, model_na
             image = HDF5Image(files[data_index])
             image.gaussian_blur(1)
             image.histogram_equalization()
-            # image.display_image()
+            image.display_image()
+
+
 
             moving_dataset = image.data[:-1]
             target_dataset = image.data[1:]
-
+            '''
             train_cur_data(epoch,
                            data_index,
                            moving_dataset,
@@ -148,6 +150,7 @@ def train_network(files, features, n_epochs, learning_rate, batch_size, model_na
                            model_name,
                            batch_size)
             gc.collect()
+            '''
     criterion.plot_loss(n_epochs, '/home/anders/Ultrasound-Affine-Transformation/figures/' + time_string + '_patch_network_loss.eps', learning_rate)
 
 
@@ -170,14 +173,14 @@ if __name__ == '__main__':
     learning_rate = 0.0001
     # ===================================
 
-    moving_dataset = ['/media/anders/TOSHIBA_EXT1/Training_set/moving_HA3C98PM.pth.tar',
-                      '/media/anders/TOSHIBA_EXT1/Training_set/moving_HA3C98PQ.pth.tar',
-                      '/media/anders/TOSHIBA_EXT1/Training_set/moving_HA3C98Q4.pth.tar']
-    target_dataset = ['/media/anders/TOSHIBA_EXT1/Training_set/target_HA3C98PM.pth.tar',
-                      '/media/anders/TOSHIBA_EXT1/Training_set/target_HA3C98PQ.pth.tar',
-                      '/media/anders/TOSHIBA_EXT1/Training_set/target_HA3C98Q4.pth.tar']
+    moving_dataset = ['/media/anders/TOSHIBA_EXT/Training_set/moving_HA3C98PM.pth.tar',
+                      '/media/anders/TOSHIBA_EXT/Training_set/moving_HA3C98PQ.pth.tar',
+                      '/media/anders/TOSHIBA_EXT/Training_set/moving_HA3C98Q4.pth.tar']
+    target_dataset = ['/media/anders/TOSHIBA_EXT/Training_set/target_HA3C98PM.pth.tar',
+                      '/media/anders/TOSHIBA_EXT/Training_set/target_HA3C98PQ.pth.tar',
+                      '/media/anders/TOSHIBA_EXT/Training_set/target_HA3C98Q4.pth.tar']
 
-    files = ['/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8E.h5',
+    files = ['/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8E.h5',
              '']
 
     start = time.time()
