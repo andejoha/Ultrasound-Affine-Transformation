@@ -10,13 +10,13 @@ class NCC(nn.Module):
         self.loss_storage = torch.tensor([]).float()
 
     def forward(self, warped_image, target_image):
-
+        '''
         plt.subplot(121)
         plt.imshow(warped_image[0, int(warped_image.shape[1] / 2)].detach().cpu(), cmap='gray')
         plt.subplot(122)
         plt.imshow(target_image[0, int(target_image.shape[1] / 2)].detach().cpu(), cmap='gray')
         plt.show()
-
+        '''
 
         warped = (warped_image[:] - torch.mean(warped_image, (1, 2, 3), keepdim=True)).cuda()
         target = (target_image[:] - torch.mean(target_image, (1, 2, 3), keepdim=True)).cuda()

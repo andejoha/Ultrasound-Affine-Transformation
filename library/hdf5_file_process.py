@@ -1,10 +1,6 @@
-import SimpleITK as sitk
 import torch
 import numpy as np
 import h5py
-import cv2
-import os
-# import nibabel as nib
 from scipy.ndimage.filters import gaussian_filter
 import matplotlib.pyplot as plt
 
@@ -71,10 +67,22 @@ class HDF5Image:
             data[i] = cdf[data[i]]
         self.data = torch.from_numpy(data)
 
+    def to(self, device):
+        self.data = self.data.to(device)
+
+    def cuda(self):
+        self.data = self.data.cuda()
+
+    def cpu(self):
+        self.data = self.data.cpu()
+
+    def requires_grad_(self, bool=True):
+        self.data = self.data.requires_grad_(bool)
+
 
 if __name__ == '__main__':
-    file1 = '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT9I.h5'
+    file1 = '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8E.h5'
+    file2 = '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8I.h5'
 
     image1 = HDF5Image(file1)
-
-    image1.display_image()
+    image2 = HDF5Image(file2)

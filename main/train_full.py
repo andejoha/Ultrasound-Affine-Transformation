@@ -83,7 +83,6 @@ def train_network(files, features, n_epochs, learning_rate, batch_size, model_na
         for data_index in range(len(files)):
             image = HDF5Image(files[data_index])
 
-
             moving_dataset = image.data[:-1]
             target_dataset = image.data[1:]
 
@@ -117,12 +116,12 @@ if __name__ == '__main__':
                       '/media/anders/TOSHIBA_EXT1/Training_set/target_HA3C98PQ.pth.tar',
                       '/media/anders/TOSHIBA_EXT1/Training_set/target_HA3C98Q4.pth.tar']
 
-    files = ['/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8E.h5',
-             '/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8G.h5',
-             '/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8I.h5',
-             '/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT9E.h5',
-             '/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT9G.h5',
-             '/media/anders/TOSHIBA_EXT1/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT9I.h5']
+    files = ['/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8E.h5',
+             '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8G.h5',
+             '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8I.h5',
+             '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT9E.h5',
+             '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT9G.h5',
+             '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT9I.h5']
 
 
     start = time.time()

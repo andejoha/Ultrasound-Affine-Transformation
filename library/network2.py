@@ -13,7 +13,16 @@ class PatchNet(nn.Module):
     def __init__(self):
         super(PatchNet, self).__init__()
         # Spatial transformer localization-network
-        self.localization = nn.Sequential(
+        self.moving_localization = nn.Sequential(
+            nn.Conv3d(1, 8, kernel_size=10),
+            nn.AvgPool3d(2, stride=2),
+            nn.ReLU(True),
+            nn.Conv3d(8, 16, kernel_size=5),
+            nn.AvgPool3d(2, stride=2),
+            nn.ReLU(True)
+        )
+
+        self.target_localization = nn.Sequential(
             nn.Conv3d(1, 8, kernel_size=10),
             nn.AvgPool3d(2, stride=2),
             nn.ReLU(True),
@@ -24,9 +33,9 @@ class PatchNet(nn.Module):
 
         # Regressor for the 3 * 2 affine matrix
         self.fc_loc = nn.Sequential(
-            nn.Linear(16 * 3 * 3 * 3, 32),
+            nn.Linear(32 * 3 * 3 * 3, 64),
             nn.ReLU(True),
-            nn.Linear(32, 3 * 2 * 2)
+            nn.Linear(64, 3 * 2 * 2)
         )
 
         # Initialize the weights/bias with identity transformation
@@ -35,15 +44,20 @@ class PatchNet(nn.Module):
 
     # Spatial transformer network forward function
     def stn(self, x):
-        xs = self.localization(x)
-        xs = xs.view(-1, 16 * 3 * 3 * 3)
+        [moving, target] = torch.split(x, 1, 1)
+
+        moving = self.moving_localization(moving)
+        target = self.target_localization(target)
+
+        xs = torch.cat((moving, target), 1)
+        xs = xs.view(-1, 32*3*3*3)
+
         theta = self.fc_loc(xs)
         theta = theta.view(-1, 3, 4)
 
         return theta
 
     def forward(self, x):
-        x = x.unsqueeze(1)
         # transform the input
         x = self.stn(x)
 
