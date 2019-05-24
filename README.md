@@ -4,6 +4,5 @@ Affine transformation of ultrasound images using deep learning. This is a part o
 ## Requirements
 * CUDA
 * PyTorch
-* h5Py 
-* SimpleITK
+* h5Py
 * SciPy
