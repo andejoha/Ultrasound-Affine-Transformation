@@ -8,10 +8,6 @@ import matplotlib.pyplot as plt
 class HDF5Image:
     def __init__(self, filename):
         self.filename = filename
-        try:
-            img = h5py.File(filename, 'r')
-        except:
-            print('An error occurred while trying to read ' + filename)
         img = h5py.File(filename, 'r')
         self.cartesian_volumes = img[list(img.keys())[0]]
         self.image_geometry = img[list(img.keys())[1]]

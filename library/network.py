@@ -1,108 +1,137 @@
-
+from __future__ import print_function
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
+
+from .affine_transformation import affine_transform
 
 
-class ConvNet(nn.Module):
-    def __init__(self, features):
-        super(ConvNet, self).__init__()
+class PatchNet(nn.Module):
+    def __init__(self):
+        super(PatchNet, self).__init__()
+        # Spatial transformer localization-network
+        self.moving_localization = nn.Sequential(
+            nn.Conv3d(1, 8, kernel_size=10),
+            nn.AvgPool3d(2, stride=2),
+            nn.ReLU(True),
+            nn.Conv3d(8, 16, kernel_size=5),
+            nn.AvgPool3d(2, stride=2),
+            nn.ReLU(True)
+        )
 
-        # Moving image pipeline:
-        #   nn.Conv3d(in_features, out_features, kernel_size)
-        #   nn.ReLU()
-        #   nn.MaxPool3d(kernel_size)
-        self.conv1_m = nn.Conv3d(1, features, 3, padding=1).cuda()
-        self.relu1_m = nn.ReLU().cuda()
-        self.maxpool1_m = nn.MaxPool3d(2).cuda()
-        self.conv2_m = nn.Conv3d(features, features, 3, padding=1).cuda()
-        self.relu2_m = nn.ReLU().cuda()
-        self.maxpool2_m = nn.MaxPool3d(2).cuda()
-        self.conv3_m = nn.Conv3d(features, features, 3, padding=1).cuda()
-        self.relu3_m = nn.ReLU().cuda()
-        self.maxpool3_m = nn.MaxPool3d(2).cuda()
-        self.conv4_m = nn.Conv3d(features, features, 3, padding=1).cuda()
-        self.relu4_m = nn.ReLU().cuda()
-        self.maxpool4_m = nn.MaxPool3d(2).cuda()
-        self.conv5_m = nn.Conv3d(features, features, 3, padding=1).cuda()
-        self.relu5_m = nn.ReLU().cuda()
+        self.target_localization = nn.Sequential(
+            nn.Conv3d(1, 8, kernel_size=10),
+            nn.AvgPool3d(2, stride=2),
+            nn.ReLU(True),
+            nn.Conv3d(8, 16, kernel_size=5),
+            nn.AvgPool3d(2, stride=2),
+            nn.ReLU(True)
+        )
 
-        # Target image pipeline
-        self.conv1_t = nn.Conv3d(1, features, 3, padding=1).cuda()
-        self.relu1_t = nn.ReLU().cuda()
-        self.maxpool1_t = nn.MaxPool3d(2).cuda()
-        self.conv2_t = nn.Conv3d(features, features, 3, padding=1).cuda()
-        self.relu2_t = nn.ReLU().cuda()
-        self.maxpool2_t = nn.MaxPool3d(2).cuda()
-        self.conv3_t = nn.Conv3d(features, features, 3, padding=1).cuda()
-        self.relu3_t = nn.ReLU().cuda()
-        self.maxpool3_t = nn.MaxPool3d(2).cuda()
-        self.conv4_t = nn.Conv3d(features, features, 3, padding=1).cuda()
-        self.relu4_t = nn.ReLU().cuda()
-        self.maxpool4_t = nn.MaxPool3d(2).cuda()
-        self.conv5_t = nn.Conv3d(features, features, 3, padding=1).cuda()
-        self.relu5_t = nn.ReLU().cuda()
+        # Regressor for the 3 * 2 affine matrix
+        self.fc_loc = nn.Sequential(
+            nn.Linear(32 * 3 * 3 * 3, 64),
+            nn.ReLU(True),
+            nn.Linear(64, 3 * 2 * 2)
+        )
 
-    def apply_downsample(self, x):
-        # Do not apply downsampling when the tensor kernel is greater or equal to 6.
-        # Why 6? Because we are using kernel size 3 and pooling_size 2 => 3*2=6
-        if x.size()[2] >= 6:
-            return F.max_pool3d(x, 2)
-        else:
-            return x
+        # Initialize the weights/bias with identity transformation
+        self.fc_loc[2].weight.data.zero_()
+        self.fc_loc[2].bias.data.copy_(torch.tensor([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0], dtype=torch.float))
+
+    # Spatial transformer network forward function
+    def stn(self, x):
+        [moving, target] = torch.split(x, 1, 1)
+
+        moving = self.moving_localization(moving)
+        target = self.target_localization(target)
+
+        xs = torch.cat((moving, target), 1)
+        xs = xs.view(-1, 32*3*3*3)
+
+        theta = self.fc_loc(xs)
+        theta = theta.view(-1, 3, 4)
+
+        return theta
+
+    def forward(self, x):
+        # transform the input
+        x = self.stn(x)
+
+        return x
+
+
+class FullNet(nn.Module):
+    def __init__(self):
+        super(FullNet, self).__init__()
+        self.shape = ()
+
+        # Spatial transformer localization-network
+        self.moving_localization = nn.Sequential(
+            nn.Conv3d(1, 32, kernel_size=3),
+            nn.AvgPool3d(2, stride=2),
+            nn.ReLU(True),
+            nn.Conv3d(32, 32, kernel_size=3),
+            nn.AvgPool3d(2, stride=2),
+            nn.ReLU(True),
+            nn.Conv3d(32, 32, kernel_size=3),
+            nn.AvgPool3d(2, stride=2),
+            nn.ReLU(True),
+            nn.Conv3d(32, 32, kernel_size=3),
+            nn.AvgPool3d(2, stride=2),
+            nn.ReLU(True),
+            nn.Conv3d(32, 32, kernel_size=3),
+        )
+
+        self.target_localization = nn.Sequential(
+            nn.Conv3d(1, 32, kernel_size=3),
+            nn.AvgPool3d(2, stride=2),
+            nn.ReLU(True),
+            nn.Conv3d(32, 32, kernel_size=3),
+            nn.AvgPool3d(2, stride=2),
+            nn.ReLU(True),
+            nn.Conv3d(32, 32, kernel_size=3),
+            nn.AvgPool3d(2, stride=2),
+            nn.ReLU(True),
+            nn.Conv3d(32, 32, kernel_size=3),
+            nn.AvgPool3d(2, stride=2),
+            nn.ReLU(True),
+            nn.Conv3d(32, 32, kernel_size=3),
+        )
+
+        # Regressor for the 4 * 3 affine matrix
+        self.fc_loc = nn.Sequential(
+            nn.Linear(64, 32),
+            nn.ReLU(True),
+            nn.Linear(32, 3 * 2 * 2)
+        )
+
+        # Initialize the weights/bias with identity transformation
+        self.fc_loc[2].weight.data.zero_()
+        self.fc_loc[2].bias.data.copy_(torch.tensor([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0], dtype=torch.float))
+
+    # Spatial transformer network forward function
+    def stn(self, x):
+        xs = self.moving_localization(x)
+        xs = xs.view(-1, 64 * 24 * 16 * 24)
+        theta = self.fc_loc(xs)
+        theta = theta.view(-1, 3, 4)
+
+        return theta
 
     def forward(self, x):
         [moving, target] = torch.split(x, 1, 1)
+        moving = self.moving_localization(moving)
+        target = self.target_localization(target)
 
-        moving_output = self.apply_downsample(self.relu1_m(self.conv1_m(moving)))
-        moving_output = self.apply_downsample(self.relu2_m(self.conv2_m(moving_output)))
-        moving_output = self.apply_downsample(self.relu3_m(self.conv3_m(moving_output)))
-        moving_output = self.apply_downsample(self.relu4_m(self.conv4_m(moving_output)))
-        moving_output = self.relu5_m(self.conv5_m(moving_output))
-        moving_output = F.avg_pool3d(moving_output, moving_output.size()[2:]).cuda()
-
-        target_output = self.apply_downsample(self.relu1_t(self.conv1_t(target)))
-        target_output = self.apply_downsample(self.relu2_t(self.conv2_t(target_output)))
-        target_output = self.apply_downsample(self.relu3_t(self.conv3_t(target_output)))
-        target_output = self.apply_downsample(self.relu4_t(self.conv4_t(target_output)))
-        target_output = self.relu5_t(self.conv5_t(target_output))
-        target_output = F.avg_pool3d(target_output, target_output.size()[2:]).cuda()
-
-        y = torch.cat((moving_output, target_output), 1)
-
-        return y.view(-1, y.size()[1])
+        # Global average pooling
+        moving = F.avg_pool3d(moving, (moving.shape[2], moving.shape[3], moving.shape[4]))
+        target = F.avg_pool3d(target, (target.shape[2], target.shape[3], target.shape[4]))
 
 
-class Net(nn.Module):
-    def __init__(self, features):
-        super(Net, self).__init__()
-
-        self.conv_net = ConvNet(features).cuda()
-        self.fc1 = nn.Linear(features * 2, features).cuda()
-        self.relu1 = nn.ReLU().cuda()
-        self.fc2 = nn.Linear(features, 12).cuda()
-
-        # Initialize the weights/bias with identity transformation
-        I = torch.tensor([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0], dtype=torch.float).cuda()
-        self.fc2.weight.data.zero_()
-        self.fc2.bias.data.copy_(I)
-
-    def forward(self, x):
-        conv_output = self.conv_net(x)
-        fc_output = self.relu1(self.fc1(conv_output))
-        fc_output = self.fc2(fc_output)
-        fc_output = fc_output.view(-1, 3, 4)
-
-        return fc_output
-
-
-if __name__ == '__main__':
-    moving_image = torch.randn(1, 1, 15, 15, 15).cuda()
-    target_image = torch.randn(1, 1, 15, 15, 15).cuda()
-    x = torch.cat((moving_image, target_image), 1)
-
-    net = Net(32).cuda()
-    theta = net(x)
-    theta = theta.view(-1, 3, 4)
-
-    print(theta)
+        out = torch.cat((moving,target), 1)
+        out = out.view(-1, out.shape[1])
+        theta = self.fc_loc(out)
+        theta = theta.view(-1, 3, 4)
+        return theta

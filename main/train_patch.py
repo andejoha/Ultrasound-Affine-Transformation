@@ -2,7 +2,7 @@ import gc
 import time
 
 # Custom libraries
-from library.network2 import PatchNet
+from library.network import PatchNet
 import library.quicksilver.util as util
 from library.ncc_loss import NCC
 from library.hdf5_file_process import HDF5Image
@@ -183,10 +183,11 @@ if __name__ == '__main__':
     learning_rate = 0.0001
     # ===================================
 
-    moving_dataset = ['/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8E.h5',
-                      '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8G.h5']
-    target_dataset = ['/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8G.h5',
-                      '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr4_STolav1to4/p3122153/J1ECAT8I.h5']
+    moving_dataset = ['/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70G.h5',
+                      '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70I.h5',
+                      '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70K.h5',
+                      '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70M.h5']
+    target_dataset = '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70E.h5'
 
     start = time.time()
     train_network(moving_dataset, target_dataset, device, features, n_epochs, learning_rate, batch_size, model_name)
