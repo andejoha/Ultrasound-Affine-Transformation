@@ -45,7 +45,7 @@ def save_image(img, original_img, execution_time, file_name, show_img=False, sav
         image_geometry.create_dataset('executionTime', data=execution_time.numpy())
 
 
-def predict(moving, target, net, criterion, output_name):
+def predict(moving, target, net, criterion, output_name, save_image=True):
     # Making moving and target the same size
     if moving.shape[0] > target.shape[0]:
         diff = moving.shape[0] - target.shape[0]
@@ -118,6 +118,7 @@ if __name__ == '__main__':
                    '/home/anders/Ultrasound-Affine-Transformation/output/J249J70I_predicted_images.h5',
                    '/home/anders/Ultrasound-Affine-Transformation/output/J249J70K_predicted_images.h5',
                    '/home/anders/Ultrasound-Affine-Transformation/output/J249J70M_predicted_images.h5']
+
     weights = '/home/anders/Ultrasound-Affine-Transformation/weights/2019.05.24_18:20:42_network_model.pht.tar'
     # ===================================
 

@@ -56,6 +56,7 @@ def affine_transform(moving_image, theta):
 
     affine_grid = affine_grid_generator_3D(predicted_theta, (N, 1, D, H, W)).cuda()
     predicted_image = F.grid_sample(moving_image, affine_grid)
+
     return predicted_image
 
 
