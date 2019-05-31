@@ -7,6 +7,7 @@ from library.network import FullNet
 from library.ncc_loss import NCC
 from library.hdf5_file_process import HDF5Image
 import library.affine_transformation as at
+import library.ncc_loss as nccl
 
 # External libraries
 import torch
@@ -46,12 +47,12 @@ def preform_validation(validation, target, net):
         predicted_theta = net(input_batch)
         predicted_image = at.affine_transform(input_batch[:, 0], predicted_theta)
 
-        validation_loss = F.binary_cross_entropy_with_logits(predicted_image.squeeze(1), input_batch[:, 1])
+        validation_loss = nccl.ncc(predicted_image.squeeze(1), input_batch[:, 1])
         validation_loss_value = validation_loss.item()
         print('====> Validation loss: {}, iter: {}/{}'.format(validation_loss_value, iters+1, N))
         loss_batch = torch.cat((loss_batch, validation_loss.detach().cpu().unsqueeze(0)))
 
-    return loss_batch
+    return loss_batch.mean(0, keepdim=True)
 
 
 def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
@@ -107,60 +108,57 @@ def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
         if iters % 100 == 0 or iters == N - 1:
             cur_state_dict = net.state_dict()
 
-            model_info = {'patch_size': patch_size,
-                          'network_feature': features,
-                          'state_dict': cur_state_dict}
+            model_info = {'state_dict': cur_state_dict}
 
             print('Saving model...')
             torch.save(model_info, model_name)
-        loss_batch = torch.cat((loss_batch, loss.detach().cpu().unsqueeze(0)))
+        loss_batch = torch.cat((loss_batch, loss[0].detach().cpu().unsqueeze(0)))
+    return loss_batch.mean(0, keepdim=True)
 
-    return loss_batch
-
-def train_network(moving_dataset, target_dataset, n_epochs, learning_rate, batch_size, model_name):
+def train_network(moving_dataset, target_dataset, n_epochs, learning_rate, model_name):
     net = create_net()
     net.train()
-    criterion = nn.BCEWithLogitsLoss().cuda()
+    criterion = NCC().cuda()
     optimizer = optim.Adam(net.parameters(), learning_rate)
+
     training_loss_storage = torch.tensor([]).float()
     validation_loss_storage = torch.tensor([]).float()
+
+    print('Loading images...')
+    validation_dataset = moving_dataset.pop(-1)
+    validation_image = HDF5Image(validation_dataset)
+    validation_image.histogram_equalization()
+    validation_image.gaussian_blur(1.4)
+
+    target_image = HDF5Image(target_dataset)
+    target_image.histogram_equalization()
+    target_image.gaussian_blur(1.4)
+
     for epoch in range(n_epochs):
-        random_moving_dataset = moving_dataset.copy()
-        random.shuffle(random_moving_dataset)
-        validation_image = moving_dataset.pop(0)
-
-        target = HDF5Image(target_dataset)
+        temp_training_loss = torch.tensor([]).float()
         for data_index in range(len(moving_dataset)):
-            print('Loading images...')
-            moving = HDF5Image(moving_dataset[data_index])
-
-            moving.gaussian_blur(1),
-            moving.histogram_equalization()
-
-            target.gaussian_blur(1),
-            target.histogram_equalization()
+            moving_image = HDF5Image(moving_dataset[data_index])
+            moving_image.gaussian_blur(1.4),
+            moving_image.histogram_equalization()
 
             training_loss = train_cur_data(epoch,
                                   data_index,
-                                  moving,
-                                  target,
+                                  moving_image,
+                                  target_image,
                                   net.train(),
                                   criterion,
                                   optimizer,
                                   model_name)
-            training_loss_storage = torch.cat((training_loss_storage, training_loss))
+            temp_training_loss = torch.cat((temp_training_loss, training_loss))
             gc.collect()
+        training_loss_storage = torch.cat((training_loss_storage, temp_training_loss.mean(0, keepdim=True)))
 
         # Preform validation loss at end of epoch
-        validation = HDF5Image(validation_image)
-        validation.gaussian_blur(1)
-        validation.histogram_equalization()
         print('Preforming validation at end of epoch nr. {}...'.format(epoch+1))
         with torch.no_grad():
-            validation_loss = preform_validation(validation, target, net)
+            validation_loss = preform_validation(validation_image, target_image, net.eval())
         validation_loss_storage = torch.cat((validation_loss_storage, validation_loss))
 
-    #criterion.plot_loss(n_epochs, '/home/anders/Ultrasound-Affine-Transformation/figures/test_img.png', learning_rate)
     training_x = np.linspace(0, n_epochs, len(training_loss_storage))
     validation_x = np.linspace(0, n_epochs, len(validation_loss_storage))
 
@@ -177,7 +175,7 @@ def train_network(moving_dataset, target_dataset, n_epochs, learning_rate, batch
     plt.ylabel('Loss')
     plt.grid()
     plt.show()
-    fig.savefig('/home/anders/Ultrasound-Affine-Transformation/figures/' + time_string + '_BCE_network_model.eps', bbox_inches='tight')
+    fig.savefig('/home/anders/Ultrasound-Affine-Transformation/figures/' + time_string + '_NCC_network_model.eps', bbox_inches='tight')
 
 
 if __name__ == '__main__':
@@ -190,21 +188,20 @@ if __name__ == '__main__':
                   str(time_now[5]).zfill(2)
 
     # ===================================
-    features = 32
-    batch_size = 64
-    patch_size = 30
     output_name = ['/home/anders/Ultrasound-Affine-Transformation/output/']
     model_name = '/home/anders/Ultrasound-Affine-Transformation/weights/' + time_string + '_network_model.pht.tar'
-    n_epochs = 1
-    learning_rate = 0.0001
+    n_epochs = 2
+    learning_rate = 0.00001
     # ===================================
 
-    moving_dataset = ['/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70E.h5',
-                      '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70G.h5']
+    moving_dataset = ['/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70G.h5',
+                      '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70I.h5',
+                      '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70K.h5',
+                      '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70M.h5']
     target_dataset = '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70E.h5'
 
     start = time.time()
-    train_network(moving_dataset, target_dataset, n_epochs, learning_rate, batch_size, model_name)
+    train_network(moving_dataset, target_dataset, n_epochs, learning_rate, model_name)
     stop = time.time()
     print('Time elapsed =', stop - start)
 

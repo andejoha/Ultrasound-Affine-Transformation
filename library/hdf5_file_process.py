@@ -48,7 +48,7 @@ class HDF5Image:
 
     def gaussian_blur(self, sigma):
         # Applies a Gaussian blur filter to the data
-        self.data = torch.from_numpy(gaussian_filter(self.data, sigma))
+        self.data = torch.from_numpy(gaussian_filter(self.data, sigma)).float()
 
 
     def histogram_equalization(self):
@@ -61,7 +61,7 @@ class HDF5Image:
             cdf_m = (cdf_m - cdf_m.min()) * 255 / (cdf_m.max() - cdf_m.min())
             cdf = np.ma.filled(cdf_m, 0).astype('uint8')
             data[i] = cdf[data[i]]
-        self.data = torch.from_numpy(data)
+        self.data = torch.from_numpy(data).float()
 
     def to(self, device):
         self.data = self.data.to(device)
