@@ -6,3 +6,4 @@ Affine transformation of ultrasound images using deep learning. This is a part o
 * PyTorch
 * h5Py
 * SciPy
+* Matplotlib
