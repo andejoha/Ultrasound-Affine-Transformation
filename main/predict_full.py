@@ -4,7 +4,7 @@ import time
 # Custom libraries
 from library.network import FullNet
 import library.affine_transformation as at
-from library.hdf5_file_process import HDF5Image
+from library.hdf5_image import HDF5Image
 from library.ncc_loss import NCC
 
 # External libraries
@@ -110,7 +110,7 @@ if __name__ == '__main__':
     # ===================================
     moving_dataset = ['/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70G.h5']
     target_dataset = '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70E.h5'
-    output_name = ['/home/anders/Ultrasound-Affine-Transformation/output/J249J70G_predicted_images.h5']
+    output_name = ['/home/anders/Ultrasound-Affine-Transformation/output/J249J70G_full_predicted_images.h5']
 
     weights = '/home/anders/Ultrasound-Affine-Transformation/weights/full_network_weights.pht.tar'
     # ===================================

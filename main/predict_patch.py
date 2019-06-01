@@ -5,7 +5,7 @@ import time
 from library.network import PatchNet
 from library.ncc_loss import NCC
 import library.affine_transformation as at
-from library.hdf5_file_process import HDF5Image
+from library.hdf5_image import HDF5Image
 import library.quicksilver.util as util
 import library.ncc_loss as nccl
 

@@ -2,7 +2,7 @@ import math
 import torch
 import numpy as np
 import torch.nn.functional as F
-from .hdf5_file_process import HDF5Image
+from .hdf5_image import HDF5Image
 import cv2
 
 
