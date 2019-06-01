@@ -29,6 +29,7 @@ def create_net(continue_from_parameter=None):
     net.train()
     return net
 
+
 def preform_validation(validation, target, net):
     if validation.shape[0] > target.shape[0]:
         diff = validation.shape[0] - target.shape[0]
@@ -49,7 +50,7 @@ def preform_validation(validation, target, net):
 
         validation_loss = nccl.ncc(predicted_image.squeeze(1), input_batch[:, 1])
         validation_loss_value = validation_loss.item()
-        print('====> Validation loss: {}, iter: {}/{}'.format(validation_loss_value, iters+1, N))
+        print('====> Validation loss: {}, iter: {}/{}'.format(validation_loss_value, iters + 1, N))
         loss_batch = torch.cat((loss_batch, validation_loss.detach().cpu().unsqueeze(0)))
 
     return loss_batch.mean(0, keepdim=True)
@@ -103,7 +104,7 @@ def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
         loss_value = loss.item()
         optimizer.step()
         print('====> Epoch: {}, datapart: {}, iter: {}/{}, loss: {}'.format(
-            epoch + 1, data_index + 1, iters+1, N, loss_value))
+            epoch + 1, data_index + 1, iters + 1, N, loss_value))
 
         if iters % 100 == 0 or iters == N - 1:
             cur_state_dict = net.state_dict()
@@ -115,6 +116,7 @@ def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
         loss_batch = torch.cat((loss_batch, loss[0].detach().cpu().unsqueeze(0)))
     return loss_batch.mean(0, keepdim=True)
 
+
 def train_network(moving_dataset, target_dataset, n_epochs, learning_rate, model_name):
     net = create_net()
     net.train()
@@ -125,7 +127,7 @@ def train_network(moving_dataset, target_dataset, n_epochs, learning_rate, model
     validation_loss_storage = torch.tensor([]).float()
 
     print('Loading images...')
-    validation_dataset = moving_dataset.pop(-1)
+    validation_dataset = moving_dataset.pop(0)
     validation_image = HDF5Image(validation_dataset)
     validation_image.histogram_equalization()
     validation_image.gaussian_blur(1.4)
@@ -142,40 +144,41 @@ def train_network(moving_dataset, target_dataset, n_epochs, learning_rate, model
             moving_image.histogram_equalization()
 
             training_loss = train_cur_data(epoch,
-                                  data_index,
-                                  moving_image,
-                                  target_image,
-                                  net.train(),
-                                  criterion,
-                                  optimizer,
-                                  model_name)
+                                           data_index,
+                                           moving_image,
+                                           target_image,
+                                           net.train(),
+                                           criterion,
+                                           optimizer,
+                                           model_name)
             temp_training_loss = torch.cat((temp_training_loss, training_loss))
             gc.collect()
         training_loss_storage = torch.cat((training_loss_storage, temp_training_loss.mean(0, keepdim=True)))
 
         # Preform validation loss at end of epoch
-        print('Preforming validation at end of epoch nr. {}...'.format(epoch+1))
+        print('Preforming validation at end of epoch nr. {}...'.format(epoch + 1))
         with torch.no_grad():
             validation_loss = preform_validation(validation_image, target_image, net.eval())
         validation_loss_storage = torch.cat((validation_loss_storage, validation_loss))
 
-    training_x = np.linspace(0, n_epochs, len(training_loss_storage))
-    validation_x = np.linspace(0, n_epochs, len(validation_loss_storage))
+        training_x = np.linspace(0, epoch + 1, len(training_loss_storage))
+        validation_x = np.linspace(0, epoch + 1, len(validation_loss_storage))
 
-    fig = plt.figure()
-    plt.subplot(211)
-    plt.plot(training_x, training_loss_storage.numpy())
-    plt.title('Training loss NCC \n Learning rate: ' + str(learning_rate))
-    plt.ylabel('Loss')
-    plt.grid()
-    plt.subplot(212)
-    plt.plot(validation_x, validation_loss_storage.numpy())
-    plt.title('Validation loss NCC')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.grid()
-    plt.show()
-    fig.savefig('/home/anders/Ultrasound-Affine-Transformation/figures/' + time_string + '_NCC_network_model.eps', bbox_inches='tight')
+        fig = plt.figure()
+        plt.subplot(211)
+        plt.plot(training_x, training_loss_storage.numpy())
+        plt.title('Training loss NCC \n Learning rate: ' + str(learning_rate))
+        plt.ylabel('Loss')
+        plt.grid()
+        plt.subplot(212)
+        plt.plot(validation_x, validation_loss_storage.numpy())
+        plt.title('Validation loss NCC')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.grid()
+        plt.show()
+    fig.savefig('/home/anders/Ultrasound-Affine-Transformation/figures/' + time_string + '_NCC_network_model.eps',
+                bbox_inches='tight')
 
 
 if __name__ == '__main__':
@@ -190,7 +193,7 @@ if __name__ == '__main__':
     # ===================================
     output_name = ['/home/anders/Ultrasound-Affine-Transformation/output/']
     model_name = '/home/anders/Ultrasound-Affine-Transformation/weights/' + time_string + '_network_model.pht.tar'
-    n_epochs = 2
+    n_epochs = 30
     learning_rate = 0.00001
     # ===================================
 
@@ -204,4 +207,3 @@ if __name__ == '__main__':
     train_network(moving_dataset, target_dataset, n_epochs, learning_rate, model_name)
     stop = time.time()
     print('Time elapsed =', stop - start)
-

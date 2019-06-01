@@ -18,7 +18,7 @@ import numpy as np
 
 
 def create_net(continue_from_parameter=None):
-    net = PatchNet().to(device)
+    net = PatchNet().cuda()
 
     if continue_from_parameter != None:
         print('Loading existing weights!')
@@ -38,7 +38,7 @@ def preform_validation(validation, target, batch_size, net, stride=29):
     loss_storage = torch.tensor([]).float()
 
     # Initializing batch variables
-    input_batch = torch.zeros(batch_size, 2, patch_size, patch_size, patch_size).to(device)
+    input_batch = torch.zeros(batch_size, 2, patch_size, patch_size, patch_size).cuda()
 
     # Creates a flat array in indexes corresponding to patches in the target and moving images
     flat_idx = util.calculatePatchIdx3D(data_size[0], patch_size * torch.ones(3), data_size[1:],
@@ -76,11 +76,11 @@ def preform_validation(validation, target, batch_size, net, stride=29):
             input_batch[slices, 0] = validation.data[patch_pos[0],
                                      patch_pos[1]:patch_pos[1] + patch_size,
                                      patch_pos[2]:patch_pos[2] + patch_size,
-                                     patch_pos[3]:patch_pos[3] + patch_size].to(device)
+                                     patch_pos[3]:patch_pos[3] + patch_size].cuda()
             input_batch[slices, 1] = target.data[patch_pos[0],
                                      patch_pos[1]:patch_pos[1] + patch_size,
                                      patch_pos[2]:patch_pos[2] + patch_size,
-                                     patch_pos[3]:patch_pos[3] + patch_size].to(device)
+                                     patch_pos[3]:patch_pos[3] + patch_size].cuda()
 
         # Forward pass and averaging over all batches
         predicted_theta = net(input_batch)
@@ -99,7 +99,7 @@ def preform_validation(validation, target, batch_size, net, stride=29):
 
 
 def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
-                   model_name, batch_size, patch_size, device, stride=29):
+                   model_name, batch_size, patch_size, stride=29):
     # Making moving, target the same size
     if moving.shape[0] > target.shape[0]:
         diff = moving.shape[0] - target.shape[0]
@@ -110,7 +110,7 @@ def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
     data_size = moving.shape
 
     # Initializing batch variables
-    input_batch = torch.zeros(batch_size, 2, patch_size, patch_size, patch_size).to(device)
+    input_batch = torch.zeros(batch_size, 2, patch_size, patch_size, patch_size).cuda()
 
     # Creates a flat array in indexes corresponding to patches in the target and moving images
     flat_idx = util.calculatePatchIdx3D(data_size[0], patch_size * torch.ones(3), data_size[1:],
@@ -148,16 +148,16 @@ def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
             input_batch[slices, 0] = moving.data[patch_pos[0],
                                      patch_pos[1]:patch_pos[1] + patch_size,
                                      patch_pos[2]:patch_pos[2] + patch_size,
-                                     patch_pos[3]:patch_pos[3] + patch_size].to(device)
+                                     patch_pos[3]:patch_pos[3] + patch_size].cuda()
             input_batch[slices, 1] = target.data[patch_pos[0],
                                      patch_pos[1]:patch_pos[1] + patch_size,
                                      patch_pos[2]:patch_pos[2] + patch_size,
-                                     patch_pos[3]:patch_pos[3] + patch_size].to(device)
+                                     patch_pos[3]:patch_pos[3] + patch_size].cuda()
 
         # Zeroing gradients
         optimizer.zero_grad()
 
-        # Forward pass and averaging over all batches
+        # Forward pass
         predicted_theta = net(input_batch)
 
         # Affine transform
@@ -197,7 +197,7 @@ def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
     return loss_storage
 
 
-def train_network(moving_dataset, target_dataset, device, n_epochs, learning_rate, batch_size, patch_size, model_name):
+def train_network(moving_dataset, target_dataset, n_epochs, learning_rate, batch_size, patch_size, model_name):
     net = create_net()
     net.train()
     criterion = NCC().cuda()
@@ -232,8 +232,7 @@ def train_network(moving_dataset, target_dataset, device, n_epochs, learning_rat
                                            optimizer,
                                            model_name,
                                            batch_size,
-                                           patch_size,
-                                           device)
+                                           patch_size)
             temp_training_loss = torch.cat((temp_training_loss, training_loss))
             gc.collect()
         training_loss_storage = torch.cat((training_loss_storage, temp_training_loss.mean(0, keepdim=True)))
@@ -274,7 +273,6 @@ if __name__ == '__main__':
                   str(time_now[5]).zfill(2)
 
     # ===================================
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batch_size = 64
     patch_size = 30
     output_name = ['/home/anders/Ultrasound-Affine-Transformation/output/']
@@ -290,7 +288,7 @@ if __name__ == '__main__':
     target_dataset = '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70E.h5'
 
     start = time.time()
-    train_network(moving_dataset, target_dataset, device, n_epochs, learning_rate, batch_size, patch_size, model_name)
+    train_network(moving_dataset, target_dataset, n_epochs, learning_rate, batch_size, patch_size, model_name)
     stop = time.time()
     print('Time elapsed =', stop - start)
 
