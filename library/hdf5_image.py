@@ -1,3 +1,4 @@
+import time
 import torch
 import numpy as np
 import h5py
@@ -48,7 +49,8 @@ class HDF5Image:
 
     def gaussian_blur(self, sigma):
         # Applies a Gaussian blur filter to the data
-        self.data = torch.from_numpy(gaussian_filter(self.data, sigma)).float()
+        for i in range(self.shape[0]):
+            self.data[i] = torch.from_numpy(gaussian_filter(self.data[i], sigma)).float()
 
 
     def histogram_equalization(self):

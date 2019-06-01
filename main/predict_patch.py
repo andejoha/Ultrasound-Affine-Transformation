@@ -63,6 +63,7 @@ def predict(moving, target, net, criterion, patch_size, output_name, stride=29):
     time_storage = torch.tensor([]).float()
 
     for i in range(N):
+        start = time.time()*1000
         # Creates a flat array in indexes corresponding to patches in the target and moving images
         flat_idx = util.calculatePatchIdx3D(1, patch_size * torch.ones(3), data_size[1:],
                                             stride * torch.ones(3))
@@ -101,40 +102,14 @@ def predict(moving, target, net, criterion, patch_size, output_name, stride=29):
                                      patch_pos[2]:patch_pos[2] + patch_size,
                                      patch_pos[3]:patch_pos[3] + patch_size].cuda()
 
-        start = time.time() * 1000
-
         # Forward pass
         predicted_theta = net(input_batch).mean(0, keepdim=True)
 
         # Affine transform
         predicted_image = at.affine_transform(moving.data[i].unsqueeze(0).cuda(), predicted_theta)
-
         stop = time.time() * 1000
 
         output_batch[i] = predicted_image[0, 0].detach().cpu()
-
-        plt.subplot(331)
-        plt.title('Moving')
-        plt.imshow(moving.data[i, int(data_size[1] / 2), :, :].detach().cpu(), cmap='gray')
-        plt.subplot(332)
-        plt.title('Target')
-        plt.imshow(target.data[i, int(data_size[1] / 2), :, :].detach().cpu(), cmap='gray')
-        plt.subplot(333)
-        plt.title('Transformed')
-        plt.imshow(output_batch[i, int(data_size[1] / 2), :, :].detach().cpu(), cmap='gray')
-        plt.subplot(334)
-        plt.imshow(moving.data[i, :, int(data_size[2] / 2), :].detach().cpu(), cmap='gray')
-        plt.subplot(335)
-        plt.imshow(target.data[i, :, int(data_size[2] / 2), :].detach().cpu(), cmap='gray')
-        plt.subplot(336)
-        plt.imshow(output_batch[i, :, int(data_size[2] / 2), :].detach().cpu(), cmap='gray')
-        plt.subplot(337)
-        plt.imshow(moving.data[i, :, :, int(data_size[3] / 2)].detach().cpu(), cmap='gray')
-        plt.subplot(338)
-        plt.imshow(target.data[i, :, :, int(data_size[3] / 2)].detach().cpu(), cmap='gray')
-        plt.subplot(339)
-        plt.imshow(output_batch[i, :, :, int(data_size[3] / 2)].detach().cpu(), cmap='gray')
-        plt.show()
 
         loss = criterion(predicted_image.squeeze(0), target.data[i].unsqueeze(0).cuda())
         loss_value = loss.item()
@@ -154,19 +129,18 @@ def predict_image(moving_dataset, target_dataset, weights, patch_size, output_na
 
     target = HDF5Image(target_dataset)
     target.histogram_equalization()
-    target.gaussian_blur(1.4),
+    target.gaussian_blur(1.4)
 
     for data_index in range(len(moving_dataset)):
+        start = time.time() * 1000
         print('Loading images...')
         moving = HDF5Image(moving_dataset[data_index])
         moving.histogram_equalization()
         moving.gaussian_blur(1.4),
 
-
         with torch.no_grad():
             predict(moving, target, net, criterion, patch_size, output_name[data_index])
         gc.collect()
-
 
 if __name__ == '__main__':
     # ===================================

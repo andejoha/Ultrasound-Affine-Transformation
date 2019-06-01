@@ -63,10 +63,10 @@ def predict(moving, target, net, criterion, output_name):
     # Main training loop
     print('Starting prediction...')
     for iters in range(N):
+        start = time.time() * 1000
         input_batch[:, 0] = moving.data[iters]
         input_batch[:, 1] = target.data[iters]
 
-        start = time.time() * 1000
         # Forward pass
         predicted_theta = net(input_batch)
 
