@@ -138,7 +138,7 @@ def predict(moving, target, net, criterion, patch_size, output_name, stride=29):
 
         loss = criterion(predicted_image.squeeze(0), target.data[i].unsqueeze(0).cuda())
         loss_value = loss.item()
-        print('====> Image predicted! Loss: {}, execution time [ms]: {}'.format(
+        print('====> Image predicted! Loss: {:.4f}, execution time [ms]: {}'.format(
             loss_value, int(stop - start)))
 
         time_storage = torch.cat((time_storage, torch.tensor([stop - start])))
@@ -151,18 +151,20 @@ def predict_image(moving_dataset, target_dataset, weights, patch_size, output_na
     net = create_net(weights)
     net.train()
     criterion = NCC()
+
+    target = HDF5Image(target_dataset)
+    target.histogram_equalization()
+    target.gaussian_blur(1.4),
+
     for data_index in range(len(moving_dataset)):
         print('Loading images...')
         moving = HDF5Image(moving_dataset[data_index])
-        target = HDF5Image(target_dataset)
-
-        moving.gaussian_blur(1),
         moving.histogram_equalization()
+        moving.gaussian_blur(1.4),
 
-        target.gaussian_blur(1),
-        target.histogram_equalization()
 
-        predict(moving, target, net, criterion, patch_size, output_name[data_index])
+        with torch.no_grad():
+            predict(moving, target, net, criterion, patch_size, output_name[data_index])
         gc.collect()
 
 

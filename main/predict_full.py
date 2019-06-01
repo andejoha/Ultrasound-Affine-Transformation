@@ -2,14 +2,14 @@ import gc
 import time
 
 # Custom libraries
-from library.network import FullNet, PatchNet
+from library.network import FullNet
 import library.affine_transformation as at
 from library.hdf5_file_process import HDF5Image
+from library.ncc_loss import NCC
 
 # External libraries
 import h5py
 import torch
-import torch.nn as nn
 
 
 def create_net(weights):
@@ -35,7 +35,6 @@ def save_image(img, original_img, execution_time, loss, file_name):
         image_geometry = f.create_group('ImageGeometry')
         for ele in original_img.image_geometry:
             name = original_img.image_geometry[ele].name
-            print(name)
             if 'filename' in name:
                 image_geometry.create_dataset(name, data=file_name, shape=(1,))
             elif 'frameNumber' in name:
@@ -43,7 +42,7 @@ def save_image(img, original_img, execution_time, loss, file_name):
             else:
                 image_geometry.create_dataset(name, data=original_img.image_geometry[ele].value)
         image_geometry.create_dataset('executionTime', data=execution_time.numpy())
-        image_geometry.create_dataset('loss', data=loss.numpy)
+        image_geometry.create_dataset('loss', data=loss.numpy())
 
 
 def predict(moving, target, net, criterion, output_name):
@@ -59,6 +58,7 @@ def predict(moving, target, net, criterion, output_name):
     input_batch = torch.zeros(1, 2, data_size[1], data_size[2], data_size[3]).cuda()
     output_batch = torch.zeros(data_size)
     time_storage = torch.tensor([]).float()
+    loss_storage = torch.tensor([]).float()
 
     # Main training loop
     print('Starting prediction...')
@@ -79,41 +79,40 @@ def predict(moving, target, net, criterion, output_name):
 
         loss = criterion(predicted_image.squeeze(1), input_batch[:, 1])
         loss_value = loss.item()
-        print('====> Image predicted! Loss: {}, execution time [ms]: {}'.format(
+        print('====> Image predicted! Loss: {:.4f}, execution time [ms]: {}'.format(
             loss_value, int(stop - start)))
-    save_image(output_batch, moving, time_storage, output_name)
+        loss_storage = torch.cat((loss_storage, loss.detach().cpu().unsqueeze(0)))
+    save_image(output_batch, moving, time_storage, loss_storage, output_name)
     return output_batch,
 
 
 def predict_image(moving_dataset, target_dataset, weights, output_name):
     net = create_net(weights)
     net.train()
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = NCC()
+
+    target = HDF5Image(target_dataset)
+    target.histogram_equalization()
+    target.gaussian_blur(1.4),
+
     for data_index in range(len(moving_dataset)):
         print('Loading images...')
         moving = HDF5Image(moving_dataset[data_index])
-        target = HDF5Image(target_dataset)
-
-        moving.gaussian_blur(1),
         moving.histogram_equalization()
+        moving.gaussian_blur(1.4),
 
-        target.gaussian_blur(1),
-        target.histogram_equalization()
-
-        predict(moving, target, net, criterion, output_name[data_index])
+        with torch.no_grad():
+            predict(moving, target, net, criterion, output_name[data_index])
         gc.collect()
 
 
 if __name__ == '__main__':
     # ===================================
-    features = 32
-    batch_size = 64
-    patch_size = 15
     moving_dataset = ['/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70G.h5']
     target_dataset = '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70E.h5'
     output_name = ['/home/anders/Ultrasound-Affine-Transformation/output/J249J70G_predicted_images.h5']
 
-    weights = '/home/anders/Ultrasound-Affine-Transformation/weights/2019.05.24_18:20:42_network_model.pht.tar'
+    weights = '/home/anders/Ultrasound-Affine-Transformation/weights/2019.06.01_11:43:39_network_model.pht.tar'
     # ===================================
 
     predict_image(moving_dataset, target_dataset, weights, output_name)
