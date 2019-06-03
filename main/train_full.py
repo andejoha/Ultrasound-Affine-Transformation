@@ -1,6 +1,5 @@
 import gc
 import time
-import random
 
 # Custom libraries
 from library.network import FullNet
@@ -162,8 +161,7 @@ def train_network(moving_dataset, target_dataset, n_epochs, learning_rate, model
         plt.ylabel('Loss')
         plt.grid()
         plt.show()
-    fig.savefig('/home/anders/Ultrasound-Affine-Transformation/figures/' + time_string + '_NCC_network_model.eps',
-                bbox_inches='tight')
+    fig.savefig('figures/' + time_string + '_NCC_network_model.eps', bbox_inches='tight')
 
 
 if __name__ == '__main__':
@@ -176,17 +174,17 @@ if __name__ == '__main__':
                   str(time_now[5]).zfill(2)
 
     # ===================================
-    output_name = ['/home/anders/Ultrasound-Affine-Transformation/output/']
-    model_name = '/home/anders/Ultrasound-Affine-Transformation/weights/' + time_string + '_network_model.pht.tar'
+    output_name = ['output/']
+    model_name = 'weights/' + time_string + '_network_model.pht.tar'
     n_epochs = 30
     learning_rate = 0.00001
     # ===================================
 
-    moving_dataset = ['/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70G.h5',
-                      '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70I.h5',
-                      '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70K.h5',
-                      '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70M.h5']
-    target_dataset = '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70E.h5'
+    moving_dataset = ['images/J249J70G.h5',
+                      'images/J249J70I.h5',
+                      'images/J249J70K.h5',
+                      'images/J249J70M.h5']
+    target_dataset = 'images/J249J70E.h5'
 
     start = time.time()
     train_network(moving_dataset, target_dataset, n_epochs, learning_rate, model_name)

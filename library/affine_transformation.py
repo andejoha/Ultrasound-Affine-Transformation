@@ -42,9 +42,6 @@ def affine_grid_generator_2D(theta, size):
 
 
 def affine_transform(moving_image, theta):
-    '''
-    output shape: (N, C, H, W, D)
-    '''
     N, D, H, W = moving_image.shape
 
     # Adding channel dimension
