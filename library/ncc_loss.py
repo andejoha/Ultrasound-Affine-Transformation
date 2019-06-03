@@ -1,7 +1,5 @@
 import torch
 import torch.nn as nn
-import numpy as np
-import matplotlib.pyplot as plt
 
 
 class NCC(nn.Module):
@@ -9,12 +7,6 @@ class NCC(nn.Module):
         super(NCC, self).__init__()
 
     def forward(self, transformed_image, target_image):
-        # plt.subplot(121)
-        # plt.imshow(transformed_image[0, int(transformed_image.shape[1] / 2)].detach().cpu(), cmap='gray')
-        # plt.subplot(122)
-        # plt.imshow(target_image[0, int(target_image.shape[1] / 2)].detach().cpu(), cmap='gray')
-        # plt.show()
-
         return ncc(transformed_image, target_image)
 
 
@@ -44,4 +36,3 @@ if __name__ == '__main__':
     loss = ncc(transformed_image, target_image)
 
     print(loss)
-

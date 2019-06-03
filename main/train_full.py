@@ -11,9 +11,7 @@ import library.ncc_loss as nccl
 
 # External libraries
 import torch
-import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -84,19 +82,6 @@ def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
 
         # Affine transform
         predicted_image = at.affine_transform(input_batch[:, 0], predicted_theta)
-
-        '''
-        plt.subplot(131)
-        plt.title('Moving')
-        plt.imshow(input_batch[0, 0, int(data_size[1] / 2)].detach().cpu(), cmap='gray')
-        plt.subplot(132)
-        plt.title('Target')
-        plt.imshow(input_batch[0, 1, int(data_size[1] / 2)].detach().cpu(), cmap='gray')
-        plt.subplot(133)
-        plt.title('Transformed')
-        plt.imshow(predicted_image[0, 0, int(data_size[1] / 2)].detach().cpu(), cmap='gray')
-        plt.show()
-        '''
 
         loss = criterion(predicted_image.squeeze(1), input_batch[:, 1])
         loss.backward()

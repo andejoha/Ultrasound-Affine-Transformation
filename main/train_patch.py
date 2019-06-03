@@ -87,7 +87,8 @@ def preform_validation(validation, target, batch_size, net, stride=29):
         # Affine transform
         predicted_patches = at.affine_transform(input_batch[:, 0], predicted_theta)
         idx = nccl.ncc(predicted_patches.squeeze(1), input_batch[:, 1]).argmax()
-        predicted_image = at.affine_transform(validation.data[patch_pos[0]].unsqueeze(0).cuda(), predicted_theta[idx].unsqueeze(0))
+        predicted_image = at.affine_transform(validation.data[patch_pos[0]].unsqueeze(0).cuda(),
+                                              predicted_theta[idx].unsqueeze(0))
 
         loss = nccl.ncc(predicted_image.squeeze(0), target.data[patch_pos[0]].unsqueeze(0))
         loss_value = loss.item()
@@ -162,19 +163,8 @@ def train_cur_data(epoch, data_index, moving, target, net, criterion, optimizer,
         # Affine transform
         predicted_patches = at.affine_transform(input_batch[:, 0], predicted_theta)
         idx = nccl.ncc(predicted_patches.squeeze(1), input_batch[:, 1]).argmax()
-        predicted_image = at.affine_transform(moving.data[patch_pos[0]].unsqueeze(0).cuda(), predicted_theta[idx].unsqueeze(0))
-
-        # plt.subplot(131)
-        # plt.title('Moving')
-        # plt.imshow(moving.data[patch_pos[0], int(data_size[1] / 2)].detach().cpu(), cmap='gray')
-        # plt.subplot(132)
-        # plt.title('Target')
-        # plt.imshow(target.data[patch_pos[0], int(data_size[1] / 2)].detach().cpu(), cmap='gray')
-        # plt.subplot(133)
-        # plt.title('Transformed')
-        # plt.imshow(predicted_image[0, 0, int(data_size[1] / 2)].detach().cpu(), cmap='gray')
-        # plt.show()
-
+        predicted_image = at.affine_transform(moving.data[patch_pos[0]].unsqueeze(0).cuda(),
+                                              predicted_theta[idx].unsqueeze(0))
 
         loss = criterion(predicted_image.squeeze(0), target.data[patch_pos[0]].unsqueeze(0))
         loss.backward()
@@ -242,8 +232,8 @@ def train_network(moving_dataset, target_dataset, n_epochs, learning_rate, batch
             validation_loss = preform_validation(validation_image, target_image, batch_size, net.eval())
         validation_loss_storage = torch.cat((validation_loss_storage, validation_loss))
 
-        training_x = np.linspace(0, epoch+1, len(training_loss_storage))
-        validation_x = np.linspace(0, epoch+1, len(validation_loss_storage))
+        training_x = np.linspace(0, epoch + 1, len(training_loss_storage))
+        validation_x = np.linspace(0, epoch + 1, len(validation_loss_storage))
 
         fig = plt.figure()
         plt.subplot(211)
@@ -258,8 +248,9 @@ def train_network(moving_dataset, target_dataset, n_epochs, learning_rate, batch
         plt.ylabel('Loss')
         plt.grid()
         plt.show()
-        fig.savefig('/home/anders/Ultrasound-Affine-Transformation/figures/' + time_string + '_NCC_patch_network_model.eps',
-                    bbox_inches='tight')
+        fig.savefig(
+            '/home/anders/Ultrasound-Affine-Transformation/figures/' + time_string + '_NCC_patch_network_model.eps',
+            bbox_inches='tight')
 
 
 if __name__ == '__main__':

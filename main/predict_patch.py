@@ -7,13 +7,10 @@ from library.ncc_loss import NCC
 import library.affine_transformation as at
 from library.hdf5_image import HDF5Image
 import library.quicksilver.util as util
-import library.ncc_loss as nccl
 
 # External libraries
 import h5py
 import torch
-import torch.nn as nn
-import matplotlib.pyplot as plt
 
 
 def create_net(weights):
@@ -63,7 +60,7 @@ def predict(moving, target, net, criterion, patch_size, output_name, stride=29):
     time_storage = torch.tensor([]).float()
 
     for i in range(N):
-        start = time.time()*1000
+        start = time.time() * 1000
         # Creates a flat array in indexes corresponding to patches in the target and moving images
         flat_idx = util.calculatePatchIdx3D(1, patch_size * torch.ones(3), data_size[1:],
                                             stride * torch.ones(3))
@@ -132,7 +129,6 @@ def predict_image(moving_dataset, target_dataset, weights, patch_size, output_na
     target.gaussian_blur(1.4)
 
     for data_index in range(len(moving_dataset)):
-        start = time.time() * 1000
         print('Loading images...')
         moving = HDF5Image(moving_dataset[data_index])
         moving.histogram_equalization()
@@ -142,14 +138,15 @@ def predict_image(moving_dataset, target_dataset, weights, patch_size, output_na
             predict(moving, target, net, criterion, patch_size, output_name[data_index])
         gc.collect()
 
+
 if __name__ == '__main__':
     # ===================================
     patch_size = 30
-    moving_dataset = ['/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70G.h5']
-    target_dataset = '/media/anders/TOSHIBA_EXT/ultrasound_examples/NewData/gr5_STolav5to8/p7_3d/J249J70E.h5'
-    output_name = ['/home/anders/Ultrasound-Affine-Transformation/output/J249J70G_patch_predicted_images.h5']
+    moving_dataset = ['images/J249J70G.h5']
+    target_dataset = 'images/J249J70E.h5'
+    output_name = ['output/J249J70G_patch_predicted_images.h5']
 
-    weights = '/home/anders/Ultrasound-Affine-Transformation/weights/patch_network_weights.pht.tar'
+    weights = 'weights/patch_network_weights.pht.tar'
     # ===================================
 
     predict_image(moving_dataset, target_dataset, weights, patch_size, output_name)
